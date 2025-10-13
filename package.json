@@ -36,7 +36,6 @@
     "@yowasp/runtime": "^9.0.56",
     "@yowasp/yosys": "release",
     "classnames": "^2.5.1",
-    "coi-serviceworker": "^0.1.7",
     "esbuild": "^0.25.8",
     "eslint": "^9.31.0",
     "lodash": "^4.17.21",
