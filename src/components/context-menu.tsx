@@ -44,10 +44,10 @@ export const ContextMenu = ({ position, items, onCancel }: ContextMenuProps) => 
     const currentIndex = useMemo(() => signal<number | null>(null), [items]);
     const itemElements = useRef<HTMLElement[]>([]);
 
-    const handlePopoverPointerDown = useCallback((event: MouseEvent) => {
+    const handleBackdropClick = useCallback((event: MouseEvent) => {
         event.preventDefault();
         onCancel();
-    }, []);
+    }, [onCancel]);
 
     const handleMouseOut = useCallback((event: MouseEvent) => {
         currentIndex.value = null;
@@ -152,7 +152,8 @@ export const ContextMenu = ({ position, items, onCancel }: ContextMenuProps) => 
         <FocusTrap returnFocus={() => elementRef.current?.focus()}>
             <div
                 className="popover-menu-backdrop"
-                onPointerDown={handlePopoverPointerDown}
+                onClick={handleBackdropClick}
+                onMouseDown={handleBackdropClick}
             />
             <div
                 ref={elementRef}
