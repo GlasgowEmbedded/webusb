@@ -20,9 +20,7 @@ jobs:
         run: |
           npm ci
           npm run minify
-      - name: Deploy artifact
-        uses: JamesIves/github-pages-deploy-action@releases/v4
-        with:
-          folder: dist/
-          branch: pages
-          single-commit: true
+      - name: Upload website to Grebedoc
+        run: |
+          set -o pipefail
+          tar -C dist -c . | zstd -T0 -1 | curl https://webusb.glasgow-embedded.org/ -X PUT -H "Authorization: Pages ${{ secrets.GREBEDOC_TOKEN }}" -H "Content-Type: application/x-tar+zstd" -T -
