@@ -5,6 +5,13 @@ export interface PackagesMessage {
     packages: { [name: string]: string }
 }
 
+export interface LoadProgressMessage {
+    type: 'loadProgress';
+    command: string;
+    totalLength: number;
+    doneLength: number;
+}
+
 export interface BuildMessage {
     type: 'build',
     files: Tree,
@@ -32,6 +39,7 @@ export type AppToBuilderMessage =
 
 export type BuilderToAppMessage =
     | PackagesMessage
+    | LoadProgressMessage
     | OutputMessage
     | ResultMessage
     | ErrorMessage;

@@ -33,7 +33,8 @@ export class Builder {
     build(
         files: Tree,
         scriptName: string,
-        writeOutput: (bytes: Uint8Array) => void
+        writeOutput: (bytes: Uint8Array) => void,
+        loadProgress: (event: { command: string; totalLength: number; doneLength: number }) => void,
     ): Promise<{ code: number, files: Tree }> {
         if (this.#busy) {
             throw new Error("Builder is busy");
@@ -44,6 +45,9 @@ export class Builder {
                 const message = event.data;
                 if (message.type === 'output') {
                     writeOutput(message.bytes);
+                } else if (message.type === 'loadProgress') {
+                    let { command, totalLength, doneLength } = message;
+                    loadProgress({ command, totalLength, doneLength });
                 } else if (message.type === 'result') {
                     resolve({ code: message.code, files: message.files });
                     this.#busy = false;

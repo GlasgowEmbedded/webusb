@@ -85,6 +85,13 @@ interface HomeChangeMessage {
     tree: FileTreeNode[];
 }
 
+interface ToolLoadProgressMessage {
+    type: 'tool-load-progress';
+    command: string;
+    totalLength: number;
+    doneLength: number;
+}
+
 export type PageToWorkerMessage =
     | RPCRequestMessage
     | RPCResponseMessage
@@ -104,4 +111,5 @@ export type WorkerToPageMessage =
     | TerminalStateChangeMessage
     | MountStateChangeMessage
     | HomeChangeMessage
+    | ToolLoadProgressMessage
     ;

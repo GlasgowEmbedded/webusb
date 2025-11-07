@@ -191,7 +191,11 @@ const boot = async (initialState: InitialState) => {
     }
 
     printProgress('Loading toolchain...');
-    await loadToolchain();
+    await loadToolchain({
+        loadProgress({ command, totalLength, doneLength }) {
+            send({ type: 'tool-load-progress', command, totalLength, doneLength });
+        },
+    });
 
     printProgress('Loading Python...');
     const pyodide = await loadPyodide({

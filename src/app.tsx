@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onMount } from 'solid-js';
+import { createEffect, createSignal, onMount, Show } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { render } from 'solid-js/web';
 import debounce from 'lodash/debounce';
@@ -10,6 +10,8 @@ import type { FileTreeNode } from './types';
 import { RPCController } from './rpc';
 import { Terminal } from './terminal';
 
+import { PopoverContainer } from './components/popover-container';
+import { ProgressPopover } from './components/progress-popover';
 import { PanelContainer } from './components/panel';
 import { TreeView } from './components/tree-view';
 
@@ -79,6 +81,21 @@ const App = () => {
         printText(termColors.reset('^C'), '');
         interrupt();
     };
+
+    const [currentlyLoadingTool, setCurrentlyLoadingTool] = createSignal<
+        { command: string; totalLength: number; doneLength: number } | null
+    >(null);
+
+    let hideToolLoadProgressTimeout = 0;
+
+    createEffect(() => {
+        let info;
+        if (info = currentlyLoadingTool()) {
+            clearTimeout(hideToolLoadProgressTimeout);
+            const timeout = info.doneLength === info.totalLength ? 2000 : 10000;
+            hideToolLoadProgressTimeout = setTimeout(() => setCurrentlyLoadingTool(null), timeout);
+        }
+    });
 
     let [creatingNewFileNode, setCreatingNewFileNode] = createSignal<
         Parameters<typeof TreeView<FileTreeNode>>[0]['creatingNewNode']
@@ -270,6 +287,11 @@ const App = () => {
                 updateFileTree(message.tree);
                 break;
             }
+            case 'tool-load-progress': {
+                let { command, totalLength, doneLength } = message;
+                setCurrentlyLoadingTool({ command, totalLength, doneLength });
+                break;
+            }
             default: message satisfies never;
         }
     });
@@ -352,9 +374,26 @@ const App = () => {
                                 },
                             ]);
                         },
-                        children: (
-                            <div ref={el => xtermContainer = el} class="panel-content" id="terminal" />
-                        ),
+                        get children() {
+                            return <div class="panel-content">
+                                <div ref={el => xtermContainer = el} id="terminal" />
+                                <PopoverContainer>
+                                    <Show when={currentlyLoadingTool()}>
+                                        {(info) => {
+                                            const fmt = (n: number) => (n / 1048576).toFixed(1);
+                                            const done = () => info().doneLength === info().totalLength;
+                                            return <ProgressPopover
+                                                label={!done() ? `Loading ${info().command}...` : `Loaded ${info().command}`}
+                                                progressText={(!done() ? `${fmt(info().doneLength)} / ` : '') +
+                                                    `${fmt(info().totalLength)} MiB`}
+                                                progressValue={info().doneLength / info().totalLength}
+                                                done={done()}
+                                            />;
+                                        }}
+                                    </Show>
+                                </PopoverContainer>
+                            </div>;
+                        },
                     },
 
                     {

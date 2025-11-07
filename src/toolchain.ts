@@ -12,7 +12,9 @@ declare global {
     };
 }
 
-export async function loadToolchain(): Promise<void> {
+export async function loadToolchain(options: {
+    loadProgress: (event: { command: string; totalLength: number; doneLength: number }) => void
+}): Promise<void> {
     if (globalThis.glasgowToolchain !== undefined) {
         return;
     }
@@ -26,7 +28,7 @@ export async function loadToolchain(): Promise<void> {
         build: (files, scriptName, writeOutput) => {
             return builder.build(files, scriptName, (bytes) => {
                 writeOutput(new TextDecoder().decode(bytes));
-            });
+            }, options.loadProgress);
         }
     };
 }

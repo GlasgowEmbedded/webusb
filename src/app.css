@@ -1,8 +1,9 @@
 @import '@xterm/xterm/css/xterm.css';
 
 :root {
-    --color-theme: #353838;
+    --color-theme: #2a312f;
     --color-accent: #88f;
+    --color-success: #5da45d;
 
     --color-page-background: oklch(from var(--color-theme) calc(l - 0.06) c h);
     --color-area-background: var(--color-theme);
@@ -24,9 +25,15 @@
     --color-button-disabled-border: var(--color-button-border);
     --color-button-disabled-text: oklch(from var(--color-button-text) 0.7 c h);
 
+    --color-progress-bar-track: oklch(from var(--color-area-background) calc(l + 0.2) c h);
+    --color-progress-bar-indicator: var(--color-accent);
+    --color-progress-bar-indicator-success: var(--color-success);
+
     --color-tree-node-line-hover-background: oklch(from var(--color-theme) 0.8 c h / 0.2);
 
-    --color-menu-background: oklch(from var(--color-theme) calc(l + 0.1) c h);
+    --color-popover-background: oklch(from var(--color-area-background) calc(l + 0.05) c h);
+
+    --color-menu-background: oklch(from var(--color-area-background) calc(l + 0.1) c h);
 
     --color-menu-item-background: var(--color-menu-background);
     --color-menu-item-hover-background: oklch(from var(--color-menu-background) calc(l + 0.05) c h);
@@ -276,6 +283,37 @@ body {
     }
 }
 
+.progress-popover {
+    padding: 8px;
+    display: grid;
+    grid-template-areas:
+        'label         progress-text'
+        'progress-bar  progress-bar ';
+    gap: 8px;
+
+    .label {
+        grid-area: label;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .progress-text {
+        grid-area: progress-text;
+        align-self: end;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .progress-bar {
+        grid-area: progress-bar;
+        width: 100%;
+        /* margin-block-start: 8px; */
+        margin-block-end: 4px;
+    }
+}
+
 .menu-list {
     margin: 0;
     padding: 4px 0;
@@ -297,6 +335,25 @@ body {
 
 .terminal-panel {
     grid-area: terminal;
+
+    .panel-content {
+        position: relative;
+        height: 0;
+        display: grid;
+
+        #terminal {
+            grid-area: 1 / -1;
+        }
+
+        .popover-container {
+            position: absolute;
+            inset-block-start: 0;
+            inset-inline-end: 0;
+            width: 100%;
+            max-width: 400px;
+            padding: 8px;
+        }
+    }
 }
 
 .terminal-panel,
@@ -305,7 +362,6 @@ body {
 }
 
 #terminal {
-    height: 0;
     font-family: monospace;
     font-size: max(13px, min(15px, 2vw));
     overflow: hidden;

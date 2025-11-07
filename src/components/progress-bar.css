@@ -1,0 +1,16 @@
+.progress-bar {
+    block-size: 4px;
+    inline-size: 10em;
+    border-radius: 9999px;
+    background: var(--color-progress-bar-track);
+    overflow: hidden;
+
+    > .filled {
+        block-size: 100%;
+        background: var(--color-progress-bar-indicator);
+    }
+
+    &.success > .filled {
+        background: var(--color-progress-bar-indicator-success);
+    }
+}

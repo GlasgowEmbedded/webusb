@@ -74,6 +74,9 @@ async function executeScript(
                 stdout: writeBuffered,
                 stderr: writeBuffered,
                 decodeASCII: false,
+                fetchProgress: ({ totalLength, doneLength }) => {
+                    postMessage({ type: 'loadProgress', command: name, totalLength, doneLength });
+                },
             })!;
         } catch (error) {
             if (error instanceof command.Exit) {
