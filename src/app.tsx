@@ -18,6 +18,8 @@ import { truthyFilter } from './helpers/truthy-filter';
 import { GLASGOW_WHEEL_URL, HOME_DIRECTORY } from './config';
 import shell from './shell.py';
 
+import './app.css';
+
 declare global {
     var GIT_COMMIT: string;
 
