@@ -22,7 +22,7 @@ def readline_reader(reader):
 
 
 def print_exception(exn):
-    print(f"\n\x1b[1;31m{''.join(traceback.format_exception(exn))}\x1b[0m", file=sys.stderr, end="")
+    print(f"\n{''.join(traceback.format_exception(exn, colorize=True))}", file=sys.stderr, end="")
 
 
 class InteractiveConsole:
