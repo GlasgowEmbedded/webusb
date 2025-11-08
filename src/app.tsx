@@ -32,8 +32,7 @@ declare global {
     function syncFSFromBacking(): Promise<void>;
     function syncFSToBacking(): Promise<void>;
 
-    function signalExecutionStart(): void;
-    function signalExecutionEnd(): void;
+    function setIsExecutingCommand(value: boolean): void;
     function setInterruptFuture(future: any): void;
 }
 
@@ -84,12 +83,8 @@ declare global {
         }
     });
 
-    globalThis.signalExecutionStart = () => {
-        isCurrentlyExecutingCommand.value = true;
-    };
-
-    globalThis.signalExecutionEnd = () => {
-        isCurrentlyExecutingCommand.value = false;
+    globalThis.setIsExecutingCommand = (value: boolean) => {
+        isCurrentlyExecutingCommand.value = value;
     };
 
     let interruptFuture: PyProxy | undefined;
