@@ -40,6 +40,10 @@ class InteractiveConsole:
         except FileNotFoundError:
             pass
 
+        # HistoricalReader saves duplicate lines, so add lines to history on our own;
+        # this setting can only be configured globally
+        readline.set_auto_history(False)
+
     def read_line(self):
         while True:
             try:
@@ -50,7 +54,9 @@ class InteractiveConsole:
                 print()
                 raise
         with readline_reader(self.reader):
-            readline.append_history_file(self.history_filename)
+            if line != readline.get_history_item(readline.get_history_length()):
+                readline.add_history(line)
+                readline.append_history_file(self.history_filename)
         return line
 
     async def interact(self):
