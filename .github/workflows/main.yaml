@@ -20,7 +20,8 @@ jobs:
         run: |
           npm ci
           npm run minify
-      - name: Upload website to Grebedoc
+      - if: ${{ github.repository == 'GlasgowEmbedded/webusb' && github.event.ref == 'refs/heads/main' }}
+        name: Upload website to Grebedoc
         run: |
           set -o pipefail
           tar -C dist -c . | zstd -T0 -1 | curl https://webusb.glasgow-embedded.org/ -X PUT -H "Authorization: Pages ${{ secrets.GREBEDOC_TOKEN }}" -H "Content-Type: application/x-tar+zstd" -T -
