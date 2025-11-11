@@ -24,4 +24,12 @@ jobs:
         name: Upload website to Grebedoc
         run: |
           set -o pipefail
+          cat >dist/_headers <<END
+          /index.html
+              cross-origin-opener-policy: same-origin
+              cross-origin-embedder-policy: require-corp
+          /worker.js
+              cross-origin-opener-policy: same-origin
+              cross-origin-embedder-policy: require-corp
+          END
           tar -C dist -c . | zstd -T0 -1 | curl https://webusb.glasgow-embedded.org/ -X PUT -H "Authorization: Pages ${{ secrets.GREBEDOC_TOKEN }}" -H "Content-Type: application/x-tar+zstd" -T -
