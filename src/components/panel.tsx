@@ -1,7 +1,4 @@
-import type { ComponentChildren, RefCallback } from 'preact';
-import { useCallback, useMemo, useRef } from 'preact/hooks';
-import { computed, useComputed, useSignal, type ReadonlySignal } from '@preact/signals';
-import { Show } from '@preact/signals/utils';
+import { createComputed, createSignal, For, onCleanup, Show, type JSX } from 'solid-js';
 import classNames from 'classnames';
 
 import { ContextMenu, type TwoDim } from './context-menu';
@@ -16,22 +13,24 @@ const resizeObserver = new ResizeObserver((entries, _observer) => {
     }
 });
 
-function useResizeObserverRef(callback: (entry: ResizeObserverEntry) => void): RefCallback<Element> {
-    const savedElementRef = useRef<Element | null>(null);
+function useResizeObserverRef(callback: (entry: ResizeObserverEntry) => void) {
+    let savedElementRef: Element | null = null;
 
-    const refCallback = useCallback((element: Element | null) => {
-        if (savedElementRef.current !== null) {
-            resizeObserver.unobserve(savedElementRef.current);
-            resizeObserverCallbacks.delete(savedElementRef.current);
+    let ref = (element: Element | null) => {
+        if (savedElementRef !== null) {
+            resizeObserver.unobserve(savedElementRef);
+            resizeObserverCallbacks.delete(savedElementRef);
         }
-        savedElementRef.current = element;
-        if (savedElementRef.current !== null) {
-            resizeObserver.observe(savedElementRef.current);
-            resizeObserverCallbacks.set(savedElementRef.current, callback);
+        savedElementRef = element;
+        if (savedElementRef !== null) {
+            resizeObserver.observe(savedElementRef);
+            resizeObserverCallbacks.set(savedElementRef, callback);
         }
-    }, [callback]);
+    };
 
-    return refCallback;
+    onCleanup(() => ref(null));
+
+    return ref;
 }
 
 interface PanelAction {
@@ -43,12 +42,12 @@ interface PanelAction {
 }
 
 interface PanelActionsProps {
-    actions?: ReadonlySignal<PanelAction[]>;
+    actions?: PanelAction[];
 }
 
-const PanelActions = ({ actions }: PanelActionsProps) => {
-    const numberOfVisibleActions = useSignal(actions?.value.length ?? 0);
-    const actionsMenuOpenAtPosition = useSignal<TwoDim | null>(null);
+const PanelActions = (props: PanelActionsProps) => {
+    const [numberOfVisibleActions, setNumberOfVisibleActions] = createSignal(props.actions?.length ?? 0);
+    const [actionsMenuOpenAtPosition, setActionsMenuOpenAtPosition] = createSignal<TwoDim | null>(null);
 
     const visibleActionsWrapperRef = useResizeObserverRef((entry: ResizeObserverEntry) => {
         const wrapper = entry.target as HTMLElement;
@@ -76,54 +75,54 @@ const PanelActions = ({ actions }: PanelActionsProps) => {
             button.hidden = true;
         }
 
-        numberOfVisibleActions.value = numberOfActionsThatFit;
+        setNumberOfVisibleActions(numberOfActionsThatFit);
     });
 
-    const handleMoreButtonClick = useMemo(() => (event: MouseEvent) => {
+    const handleMoreButtonClick = (event: MouseEvent) => {
         const target = event.currentTarget as HTMLElement;
         const rect = target.getBoundingClientRect();
-        actionsMenuOpenAtPosition.value = [rect.right, rect.bottom - 4];
-    }, []);
+        setActionsMenuOpenAtPosition([rect.right, rect.bottom - 4]);
+    };
 
     return (
         <>
-            <div ref={visibleActionsWrapperRef} className="panel-visible-actions-wrapper">
-                <div className="panel-visible-actions">
-                    {computed(() => actions!.value.map((action, idx) => (
+            <div ref={visibleActionsWrapperRef} class="panel-visible-actions-wrapper">
+                <div class="panel-visible-actions">
+                    {props.actions?.map((action, idx) => (
                         <button
                             type="button"
-                            className="button"
-                            hidden={idx >= numberOfVisibleActions.value}
+                            class="button"
+                            hidden={idx >= numberOfVisibleActions()}
                             disabled={action.disabled}
                             title={action.name}
                             aria-label={action.name}
                             onClick={action.handleAction}
                         >
-                            {action.iconName ? <Icon className="aligned-icon" name={action.iconName} /> : null}
+                            {action.iconName ? <Icon class="aligned-icon" name={action.iconName} /> : null}
                             {!action.iconOnly ? <span>{action.name}</span> : null}
                         </button>
-                    )))}
+                    ))}
                     <button
                         type="button"
-                        className="button"
+                        class="button"
                         aria-label="More"
-                        hidden={computed(() => numberOfVisibleActions.value === actions!.value.length)}
+                        hidden={numberOfVisibleActions() === props.actions?.length}
                         onClick={handleMoreButtonClick}
                     >
                         <IconMore class="aligned-icon" />
                     </button>
                 </div>
             </div>
-            {computed(() => actionsMenuOpenAtPosition.value ? (
+            {(props.actions && actionsMenuOpenAtPosition()) ? (
                 <ContextMenu
-                    position={actionsMenuOpenAtPosition.value}
-                    items={actions!.value.slice(numberOfVisibleActions.value).map((action) => ({
+                    position={actionsMenuOpenAtPosition()!}
+                    items={props.actions.slice(numberOfVisibleActions()).map((action) => ({
                         name: action.name,
                         action: (event) => action.handleAction(event),
                     }))}
-                    onCancel={() => actionsMenuOpenAtPosition.value = null}
+                    onCancel={() => setActionsMenuOpenAtPosition(null)}
                 />
-            ) : null)}
+            ) : null}
         </>
     );
 };
@@ -132,32 +131,35 @@ interface Panel {
     name: string;
     iconName: string;
     className?: string;
-    actions?: ReadonlySignal<PanelAction[]>;
-    children?: ComponentChildren;
+    actions?: PanelAction[];
+    children?: JSX.Element;
 }
 
 interface PanelContainerProps {
     panels: Panel[];
 }
 
-export const PanelContainer = ({ panels }: PanelContainerProps) => {
-    const activePanelIdx = useSignal(0);
-    const isSinglePanel = useSignal(false);
-    const isMultiplePanel = useComputed(() => !isSinglePanel.value);
+export const PanelContainer = (props: PanelContainerProps) => {
+    const [activePanelIdx, setActivePanelIdx] = createSignal(0);
+    const [isSinglePanel, setIsSinglePanel] = createSignal(false);
 
-    const handleResize = useCallback((entry: ResizeObserverEntry) => {
-        isSinglePanel.value = entry.borderBoxSize[0].inlineSize <= 600;
-    }, []);
+    const handleResize = (entry: ResizeObserverEntry) => {
+        setIsSinglePanel(entry.borderBoxSize[0].inlineSize <= 600);
+    };
 
-    const lastFocusedElementsPerPanel = useMemo<HTMLOrSVGElement[]>(() => [], [panels]);
+    const lastFocusedElementsPerPanel: HTMLOrSVGElement[] = [];
+    createComputed(() => {
+        props.panels;
+        lastFocusedElementsPerPanel.length = 0;
+    });
 
-    const switchToPanel = useCallback((newIdx: number) => {
-        activePanelIdx.value = newIdx;
-    }, [lastFocusedElementsPerPanel]);
+    const switchToPanel = (newIdx: number) => {
+        setActivePanelIdx(newIdx);
+    };
 
-    const handlePanelButtonPointerDown = useCallback((newIdx: number) => (event: PointerEvent) => {
+    const handlePanelButtonPointerDown = (newIdx: number) => (event: PointerEvent) => {
         event.preventDefault();
-        lastFocusedElementsPerPanel[activePanelIdx.value] =
+        lastFocusedElementsPerPanel[activePanelIdx()] =
             (document.activeElement ?? document.body) as HTMLElement as HTMLOrSVGElement;
         switchToPanel(newIdx);
         if (lastFocusedElementsPerPanel[newIdx]) {
@@ -166,54 +168,58 @@ export const PanelContainer = ({ panels }: PanelContainerProps) => {
                 delete lastFocusedElementsPerPanel[newIdx];
             });
         }
-    }, [lastFocusedElementsPerPanel]);
+    };
 
     const rootRefCallback = useResizeObserverRef(handleResize);
 
     return (
         <div
             ref={rootRefCallback}
-            className={computed(() => classNames('panel-container', isSinglePanel.value && 'single-panel'))}
+            class={classNames('panel-container', isSinglePanel() && 'single-panel')}
         >
-            <Show when={isSinglePanel}>
-                {() => <header className="panel-header">
-                    {computed(() => panels.map((panel, idx) => (
-                        <button
-                            className={computed(() => classNames('panel-title', panel.className && `${panel.className}-title`, activePanelIdx.value === idx && 'active'))}
-                            aria-label={panel.name}
-                            onClick={() => switchToPanel(idx)}
-                            onPointerDown={handlePanelButtonPointerDown(idx)}
-                        >
-                            <Icon className="aligned-icon" name={panel.iconName} />
-                        </button>
-                    )))}
-                    {computed(() => <PanelActions actions={panels[activePanelIdx.value].actions} />)}
-                </header>}
+            <Show when={isSinglePanel()}>
+                <header class="panel-header">
+                    <For each={props.panels}>
+                        {(panel, idx) => (
+                            <button
+                                class={classNames('panel-title', panel.className && `${panel.className}-title`, (activePanelIdx() === idx()) && 'active')}
+                                aria-label={panel.name}
+                                onClick={() => switchToPanel(idx())}
+                                onPointerDown={handlePanelButtonPointerDown(idx())}
+                            >
+                                <Icon class="aligned-icon" name={panel.iconName} />
+                            </button>
+                        )}
+                    </For>
+                    <PanelActions actions={props.panels[activePanelIdx()].actions} />
+                </header>
             </Show>
-            <div className="panel-grid">
-                {panels.map((panel, idx) => (
-                    <div
-                        className={computed(() => classNames(
-                            'panel',
-                            panel.className,
-                            !isSinglePanel.value && 'padded',
-                            isSinglePanel.value && activePanelIdx.value !== idx && 'panel-hidden',
-                        ))}
-                    >
-                        <Show when={isMultiplePanel}>
-                            <header className="panel-header">
-                                <h2 className="panel-title active">
-                                    <Icon className="aligned-icon" name={panel.iconName} />
-                                    <span>{panel.name}</span>
-                                </h2>
-                                <Show when={computed(() => panel.actions && panel.actions.value.length > 0)}>
-                                    {() => <PanelActions actions={panel.actions} />}
-                                </Show>
-                            </header>
-                        </Show>
-                        {panel.children}
-                    </div>
-                ))}
+            <div class="panel-grid">
+                <For each={props.panels}>
+                    {(panel, idx) => (
+                        <div
+                            class={classNames(
+                                'panel',
+                                panel.className,
+                                !isSinglePanel() && 'padded',
+                                isSinglePanel() && activePanelIdx() !== idx() && 'panel-hidden',
+                            )}
+                        >
+                            <Show when={!isSinglePanel()}>
+                                <header class="panel-header">
+                                    <h2 class="panel-title active">
+                                        <Icon class="aligned-icon" name={panel.iconName} />
+                                        <span>{panel.name}</span>
+                                    </h2>
+                                    <Show when={panel.actions && panel.actions.length > 0}>
+                                        {(_) => <PanelActions actions={panel.actions} />}
+                                    </Show>
+                                </header>
+                            </Show>
+                            {panel.children}
+                        </div>
+                    )}
+                </For>
             </div>
         </div>
     );

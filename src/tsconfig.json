@@ -2,8 +2,8 @@
     "compilerOptions": {
         "noEmit": true,
         "skipLibCheck": true,
-        "jsx": "react-jsx",
-        "jsxImportSource": "preact",
+        "jsx": "preserve",
+        "jsxImportSource": "solid-js",
         "moduleResolution": "bundler",
         "module": "esnext",
         "target": "esnext",

@@ -1,16 +1,18 @@
-import type { JSX } from 'preact';
+import { splitProps, type JSX } from 'solid-js';
 import classNames from 'classnames';
 
 const codiconsSpriteSheetURL = new URL('../../node_modules/@vscode/codicons/dist/codicon.svg', import.meta.url).href;
 
-export interface IconProps extends JSX.SVGAttributes<SVGSVGElement> {
+export interface IconProps extends JSX.SvgSVGAttributes<SVGSVGElement> {
     name: string;
 }
 
-export const Icon = ({ name, className, class: classNameAttr, ...other }: IconProps) => {
+export const Icon = (props: IconProps) => {
+    const [local, other] = splitProps(props, ['name', 'class']);
+
     return (
-        <svg width={16} height={16} className={classNames('icon', className, classNameAttr)} {...other}>
-            <use href={`${codiconsSpriteSheetURL}#${name}`} />
+        <svg width={16} height={16} class={classNames('icon', props.class)} {...other}>
+            <use href={`${codiconsSpriteSheetURL}#${local.name}`} />
         </svg>
     );
 };

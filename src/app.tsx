@@ -1,6 +1,6 @@
-import './preact-hacks';
-import { render } from 'preact';
-import { computed, effect, signal } from '@preact/signals';
+import { createEffect, createSignal } from 'solid-js';
+import { createStore, reconcile } from 'solid-js/store';
+import { render } from 'solid-js/web';
 import debounce from 'lodash/debounce';
 import termColors from './vendor/terminal-colors';
 import { loadPyodide, type PyProxy } from './vendor/pyodide';
@@ -42,20 +42,24 @@ declare global {
 (async () => {
     console.log(`[App] Built from git commit ${globalThis.GIT_COMMIT}`);
 
-    const isInitializing = signal(true);
-    const fileTree = signal<FileTreeNode[] | null>(null);
+    const [isInitializing, setIsInitializing] = createSignal(true);
+    const [fileTree, setFileTree] = createStore<{ tree: FileTreeNode[] | null }>({ tree: null });
 
-    const isNativeFSMounted = signal(false);
-    const isNativeFSMountDisabled = signal(true);
+    function updateFileTree(newTree: FileTreeNode[]) {
+        setFileTree('tree', reconcile(newTree, { key: 'name' }));
+    }
+
+    const [isNativeFSMounted, setIsNativeFSMounted] = createSignal(false);
+    const [isNativeFSMountDisabled, setIsNativeFSMountDisabled] = createSignal(true);
 
     const handleMountNativeFSClick = async () => {
-        isNativeFSMountDisabled.value = true;
+        setIsNativeFSMountDisabled(true);
 
-        if (isNativeFSMounted.value) {
+        if (isNativeFSMounted()) {
             await glasgowFS.unmountNativeFS();
 
-            isNativeFSMounted.value = false;
-            isNativeFSMountDisabled.value = false;
+            setIsNativeFSMounted(false);
+            setIsNativeFSMountDisabled(false);
             return;
         }
 
@@ -65,29 +69,29 @@ declare global {
 
             const fileSystemHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
             await glasgowFS.mountNativeFS(fileSystemHandle);
-            isNativeFSMounted.value = true;
+            setIsNativeFSMounted(true);
         } finally {
-            isNativeFSMountDisabled.value = false;
+            setIsNativeFSMountDisabled(false);
         }
     };
 
-    const isCurrentlyExecutingCommand = signal(false);
-    const isInterruptExecutionButtonEnabled = signal(false);
+    const [isCurrentlyExecutingCommand, setIsCurrentlyExecutingCommand] = createSignal(false);
+    const [isInterruptExecutionButtonEnabled, setIsInterruptExecutionButtonEnabled] = createSignal(false);
     const activateInterruptExecutionButton = debounce(() => {
-        isInterruptExecutionButtonEnabled.value = true;
+        setIsInterruptExecutionButtonEnabled(true);
     }, 100);
 
-    effect(() => {
-        if (isCurrentlyExecutingCommand.value) {
+    createEffect(() => {
+        if (isCurrentlyExecutingCommand()) {
             activateInterruptExecutionButton();
         } else {
             activateInterruptExecutionButton.cancel();
-            isInterruptExecutionButtonEnabled.value = false;
+            setIsInterruptExecutionButtonEnabled(false);
         }
     });
 
     globalThis.setIsExecutingCommand = (value: boolean) => {
-        isCurrentlyExecutingCommand.value = value;
+        setIsCurrentlyExecutingCommand(value);
     };
 
     let interruptFuture: PyProxy | undefined;
@@ -183,28 +187,36 @@ declare global {
         await glasgowFS.renamePath(path, newPath, dryRun);
     };
 
-    render(
-        <div className="main">
+    render(() =>
+        <div class="main">
             <PanelContainer
                 panels={[
                     {
                         name: 'Terminal',
                         iconName: 'terminal',
                         className: 'terminal-panel',
-                        actions: computed(() => onlyTruthy([
-                            'showDirectoryPicker' in window && {
-                                name: isNativeFSMounted.value ? 'Unmount /mnt' : 'Mount /mnt',
-                                disabled: isNativeFSMountDisabled.value,
-                                handleAction: handleMountNativeFSClick,
-                            },
-                            {
-                                name: 'Stop',
-                                iconName: 'stop-circle',
-                                iconOnly: true,
-                                disabled: !isInterruptExecutionButtonEnabled.value,
-                                handleAction: handleInterruptExecutionClick,
-                            },
-                        ])),
+                        get actions() {
+                            return onlyTruthy([
+                                'showDirectoryPicker' in window && {
+                                    get name() {
+                                        return isNativeFSMounted() ? 'Unmount /mnt' : 'Mount /mnt';
+                                    },
+                                    get disabled() {
+                                        return isNativeFSMountDisabled();
+                                    },
+                                    handleAction: handleMountNativeFSClick,
+                                },
+                                {
+                                    name: 'Stop',
+                                    iconName: 'stop-circle',
+                                    iconOnly: true,
+                                    get disabled() {
+                                        return !isInterruptExecutionButtonEnabled();
+                                    },
+                                    handleAction: handleInterruptExecutionClick,
+                                },
+                            ]);
+                        },
                         children: (
                             <div class="panel-content" id="terminal" />
                         ),
@@ -214,33 +226,35 @@ declare global {
                         name: '/root',
                         iconName: 'folder-opened',
                         className: 'file-tree-panel',
-                        actions: computed(() => [
-                            {
-                                name: 'Upload file',
-                                iconName: 'new-file',
-                                iconOnly: true,
-                                disabled: fileTree.value === null,
-                                handleAction() {
-                                    createNewFile(null);
+                        get actions() {
+                            return [
+                                {
+                                    name: 'Upload file',
+                                    iconName: 'new-file',
+                                    iconOnly: true,
+                                    disabled: fileTree.tree === null,
+                                    handleAction() {
+                                        createNewFile(null);
+                                    },
                                 },
-                            },
-                            {
-                                name: 'Create folder',
-                                iconName: 'new-folder',
-                                iconOnly: true,
-                                disabled: fileTree.value === null,
-                                handleAction() {
-                                    createNewFolder(null);
+                                {
+                                    name: 'Create folder',
+                                    iconName: 'new-folder',
+                                    iconOnly: true,
+                                    disabled: fileTree.tree === null,
+                                    handleAction() {
+                                        createNewFolder(null);
+                                    },
                                 },
-                            },
-                        ]),
-                        children: (
-                            <div class="panel-content tree">
-                                {computed(() => (
-                                    fileTree.value
+                            ];
+                        },
+                        get children() {
+                            return (
+                                <div class="panel-content tree">
+                                    {fileTree.tree
                                         ? (
                                             <TreeView
-                                                nodes={fileTree.value}
+                                                nodes={fileTree.tree}
                                                 emptyTreeMessage="Directory is empty"
                                                 actions={[
                                                     {
@@ -291,10 +305,11 @@ declare global {
                                                 api={(value) => treeViewAPI = value}
                                             />
                                         )
-                                        : <i>{computed(() => isInitializing.value ? 'Waiting...' : 'Unavailable')}</i>
-                                ))}
-                            </div>
-                        ),
+                                        : <i>{isInitializing() ? 'Waiting...' : 'Unavailable'}</i>
+                                    }
+                                </div>
+                            );
+                        },
                     },
                 ]}
             />
@@ -332,7 +347,7 @@ declare global {
             throw 'WebUSB is required but not available.';
         }
     } catch (errorText: unknown) {
-        isInitializing.value = false;
+        setIsInitializing(false);
         printError(errorText as string);
         xterm.endSession();
         return;
@@ -462,17 +477,14 @@ declare global {
         return glasgowFS.syncFSToBacking();
     };
 
-    const updateFileTree = async () => {
-        fileTree.value = await glasgowFS.readFileTree(HOME_DIRECTORY);
-    };
-    await glasgowFS.subscribeToUpdates(new RegExp(`^${RegExp.escape(HOME_DIRECTORY)}(?:\\/|$)`), () => {
-        updateFileTree();
+    await glasgowFS.subscribeToUpdates(new RegExp(`^${RegExp.escape(HOME_DIRECTORY)}(?:\\/|$)`), async () => {
+        updateFileTree(await glasgowFS.readFileTree(HOME_DIRECTORY));
     });
 
     Object.assign(window, { pyodide });
 
     await glasgowFS.mountHome();
-    isNativeFSMountDisabled.value = false;
+    setIsNativeFSMountDisabled(false);
 
     printProgress('Loading Glasgow software...');
 
@@ -491,7 +503,7 @@ declare global {
     //     interactive_console()
     // `);
 
-    isInitializing.value = false;
+    setIsInitializing(false);
     await pyodide.runPythonAsync(shell);
 })();
 

@@ -1,11 +1,6 @@
-import { createContext, type Ref } from 'preact';
-import { useCallback, useContext, useEffect, useMemo, useRef } from 'preact/hooks';
-import { computed, signal, Signal, useSignal, useSignalEffect } from '@preact/signals';
-import { Show } from '@preact/signals/utils';
+import { createComputed, createContext, createEffect, createMemo, createSignal, For, Show, useContext } from 'solid-js';
 import classNames from 'classnames';
 
-import { writeToRef } from '../helpers/write-to-ref';
-import { mergeRefs } from '../helpers/merge-refs';
 import { modulo } from '../helpers/modulo';
 import { ContextMenu, type TwoDim } from './context-menu';
 import { Icon } from './icon';
@@ -47,15 +42,13 @@ interface TreeNodeAPI {
 interface TreeRootContextValue {
     rootNodes: TreeNode[];
     nodeElements: Map<TreeNode, HTMLElement>;
-    currentlyFocusableNode: Signal<TreeNode | null>;
-    creatingNewNode: Signal<
+    currentlyFocusableNode: TreeNode | null;
+    creatingNewNode: (
         (
-            (
-                | Parameters<TreeViewAPI<TreeNode>['createFile']>[0]
-                | Parameters<TreeViewAPI<TreeNode>['createFolder']>[0]
-            ) & { type: 'file' | 'folder'; }
-        ) | null
-    >;
+            | Parameters<TreeViewAPI<TreeNode>['createFile']>[0]
+            | Parameters<TreeViewAPI<TreeNode>['createFolder']>[0]
+        ) & { type: 'file' | 'folder'; }
+    ) | null;
     actions: TreeNodeAction<TreeNode>[];
     focus(node: TreeNode | null): void;
 }
@@ -67,13 +60,13 @@ interface TreeNodeCreationProps {
     parents: TreeNode[];
 }
 
-const TreeNodeCreationForm = ({ creatingType, parents }: TreeNodeCreationProps) => {
+const TreeNodeCreationForm = (props: TreeNodeCreationProps) => {
     const treeRootContext = useContext(TreeRootContext);
     if (treeRootContext === null) {
         throw new Error('TreeRootContext must be provided');
     }
 
-    const execute = useCallback(async (form: HTMLFormElement, dryRun: boolean) => {
+    const execute = async (form: HTMLFormElement, dryRun: boolean) => {
         const nameInput = form.elements.namedItem('name') as HTMLInputElement;
         const name = nameInput.value.trim();
         if (name === '') {
@@ -81,63 +74,63 @@ const TreeNodeCreationForm = ({ creatingType, parents }: TreeNodeCreationProps) 
             return;
         }
         try {
-            await treeRootContext.creatingNewNode.value!.execute({
-                node: parents.at(-1) ?? null,
-                parents: parents.slice(0, -1),
+            await treeRootContext.creatingNewNode!.execute({
+                node: props.parents.at(-1) ?? null,
+                parents: props.parents.slice(0, -1),
                 name: name,
                 dryRun: dryRun,
             });
             nameInput.setCustomValidity('');
             if (dryRun)
                 return;
-            treeRootContext.creatingNewNode.value = null;
+            treeRootContext.creatingNewNode = null;
         } catch (e) {
             nameInput.setCustomValidity(String(e));
         }
-    }, [parents]);
+    };
 
-    const cancel = useCallback(() => {
-        treeRootContext.creatingNewNode.value = null;
-    }, []);
+    const cancel = () => {
+        treeRootContext.creatingNewNode = null;
+    };
 
-    const handleBlur = useCallback((_event: FocusEvent) => {
+    const handleBlur = (_event: FocusEvent) => {
         cancel();
-    }, []);
+    };
 
-    const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent) => {
         if (event.key === 'Escape') {
             cancel();
         }
-    }, []);
+    };
 
-    const handleInput = useCallback((event: InputEvent) => {
+    const handleInput = (event: InputEvent) => {
         const form = (event.target as HTMLInputElement).form!;
         execute(form, true);
-    }, []);
+    };
 
-    const handleSubmit = useCallback((event: SubmitEvent) => {
+    const handleSubmit = (event: SubmitEvent) => {
         event.preventDefault();
         execute(event.target as HTMLFormElement, false);
-    }, []);
+    };
 
     return (
-        <form className="tree-list-item" onSubmit={handleSubmit}>
-            <div className="tree-node-line" style={{ '--level': parents.length }}>
-                {creatingType === 'folder' ? (
-                    <Icon className="tree-node-chevron" name="chevron-right" />
+        <form class="tree-list-item" onSubmit={handleSubmit}>
+            <div class="tree-node-line" style={{ '--level': props.parents.length }}>
+                {props.creatingType === 'folder' ? (
+                    <Icon class="tree-node-chevron" name="chevron-right" />
                 ) : null}
-                <Icon className="tree-node-icon" name={creatingType === 'folder' ? 'folder' : 'file'} aria-hidden />
+                <Icon class="tree-node-icon" name={props.creatingType === 'folder' ? 'folder' : 'file'} aria-hidden />
                 <input
-                    ref={el => {
+                    ref={el => requestAnimationFrame(() => {
                         if (el) {
                             el.focus();
                             el.setSelectionRange(0, modulo(el.value.lastIndexOf('.'), el.value.length + 1));
                         }
-                    }}
-                    className="tree-node-name"
+                    })}
+                    class="tree-node-name"
                     type="text"
                     name="name"
-                    defaultValue={treeRootContext.creatingNewNode.value!.defaultName ?? ''}
+                    value={treeRootContext.creatingNewNode!.defaultName ?? ''}
                     autocomplete="off"
                     onBlur={handleBlur}
                     onKeyDown={handleKeyDown}
@@ -151,81 +144,81 @@ const TreeNodeCreationForm = ({ creatingType, parents }: TreeNodeCreationProps) 
 interface TreeListProps {
     nodes: TreeNode[];
     parents: TreeNode[];
-    ref?: Ref<HTMLElement>;
+    ref?: (el: HTMLElement) => void;
 }
 
-const TreeList = ({ nodes, parents, ref }: TreeListProps) => {
+const TreeList = (props: TreeListProps) => {
     const treeRootContext = useContext(TreeRootContext);
     if (treeRootContext === null) {
         throw new Error('TreeRootContext must be provided');
     }
 
-    const isRoot = parents.length === 0;
+    const isRoot = () => props.parents.length === 0;
 
-    const ulRef = useRef<HTMLUListElement>(null);
-    const contextMenuOpenAtPosition = useSignal<TwoDim | null>(null);
+    let ulRef: HTMLUListElement | undefined;
+    const [contextMenuOpenAtPosition, setContextMenuOpenAtPosition] = createSignal<TwoDim | null>(null);
 
-    const nodesIncludingNew = useMemo(() => computed<(TreeNode | { creatingType: 'file' | 'folder' })[]>(() => {
-        const creatingNewNode = treeRootContext.creatingNewNode.value;
+    const nodesIncludingNew = createMemo<(TreeNode | { creatingType: 'file' | 'folder' })[]>(() => {
+        const creatingNewNode = treeRootContext.creatingNewNode;
         if (creatingNewNode === null) {
-            return nodes;
+            return props.nodes;
         }
-        if (creatingNewNode.underNode !== (parents.at(-1) ?? null)) {
-            return nodes;
+        if (creatingNewNode.underNode !== (props.parents.at(-1) ?? null)) {
+            return props.nodes;
         }
         if (creatingNewNode.type === 'folder') {
-            return [{ creatingType: 'folder' }, ...nodes];
+            return [{ creatingType: 'folder' }, ...props.nodes];
         }
-        let firstFileIndex = nodes.findIndex(node => !node.children);
-        let folders = firstFileIndex !== -1 ? nodes.slice(0, firstFileIndex) : nodes;
-        let files = nodes.slice(folders.length);
+        let firstFileIndex = props.nodes.findIndex(node => !node.children);
+        let folders = firstFileIndex !== -1 ? props.nodes.slice(0, firstFileIndex) : props.nodes;
+        let files = props.nodes.slice(folders.length);
         return [...folders, { creatingType: 'file' }, ...files];
-    }), [nodes]);
+    });
 
-    const handleFocus = useCallback((event: FocusEvent) => {
-        if (isRoot) {
-            treeRootContext.currentlyFocusableNode.value = null;
+    const handleFocus = (event: FocusEvent) => {
+        if (isRoot()) {
+            treeRootContext.currentlyFocusableNode = null;
         }
-    }, [isRoot, treeRootContext]);
+    };
 
-    const handleContextMenu = useCallback((event: MouseEvent) => {
+    const handleContextMenu = (event: MouseEvent) => {
         event.preventDefault();
-        contextMenuOpenAtPosition.value = [event.clientX, event.clientY];
-    }, []);
+        setContextMenuOpenAtPosition([event.clientX, event.clientY]);
+    };
 
-    const handleContextMenuCancel = useCallback(() => {
-        ulRef.current?.focus();
-        contextMenuOpenAtPosition.value = null;
-    }, []);
+    const handleContextMenuCancel = () => {
+        ulRef?.focus();
+        setContextMenuOpenAtPosition(null);
+    };
 
-    const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent) => {
         if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
             let direction = event.key === 'ArrowDown' ? 1 : -1;
             let currentIndex = -1;
-            if (treeRootContext.currentlyFocusableNode.value) {
-                currentIndex = nodes.indexOf(treeRootContext.currentlyFocusableNode.value);
+            if (treeRootContext.currentlyFocusableNode) {
+                currentIndex = props.nodes.indexOf(treeRootContext.currentlyFocusableNode);
             }
             let newIndex = currentIndex + direction;
             if (currentIndex === -1) {
                 newIndex = direction === 1 ? 0 : -1;
             }
             if (currentIndex !== -1 && newIndex < 0) {
-                if (parents.length > 0) {
-                    treeRootContext.focus(parents.at(-1)!);
+                if (props.parents.length > 0) {
+                    treeRootContext.focus(props.parents.at(-1)!);
                     event.stopPropagation();
                 }
-            } else if (currentIndex !== -1 && newIndex >= nodes.length) {
-                if (parents.length > 0) {
-                    let parentParentChildren = parents.at(-2)?.children ?? treeRootContext.rootNodes;
-                    let parentIndex = parentParentChildren.indexOf(parents.at(-1)!);
+            } else if (currentIndex !== -1 && newIndex >= props.nodes.length) {
+                if (props.parents.length > 0) {
+                    let parentParentChildren = props.parents.at(-2)?.children ?? treeRootContext.rootNodes;
+                    let parentIndex = parentParentChildren.indexOf(props.parents.at(-1)!);
                     if (parentIndex + 1 < parentParentChildren.length) {
                         treeRootContext.focus(parentParentChildren[parentIndex + 1]);
                         event.stopPropagation();
                     }
                 }
             } else {
-                newIndex = modulo(newIndex, nodes.length);
-                let node = nodes[newIndex];
+                newIndex = modulo(newIndex, props.nodes.length);
+                let node = props.nodes[newIndex];
                 if (direction === -1) {
                     while (node.children && node.children.length > 0 && treeRootContext.nodeElements.has(node.children.at(-1)!)) {
                         node = node.children.at(-1)!;
@@ -234,51 +227,51 @@ const TreeList = ({ nodes, parents, ref }: TreeListProps) => {
                 treeRootContext.focus(node);
                 event.stopPropagation();
             }
-        } else if (isRoot && event.key === 'ArrowRight') {
-            if (nodes.length > 0 && treeRootContext.currentlyFocusableNode.value === null) {
-                treeRootContext.focus(nodes[0]);
+        } else if (isRoot() && event.key === 'ArrowRight') {
+            if (props.nodes.length > 0 && treeRootContext.currentlyFocusableNode === null) {
+                treeRootContext.focus(props.nodes[0]);
             }
         }
-    }, [treeRootContext, nodes, isRoot]);
+    };
 
     return (
         <>
             <ul
-                ref={mergeRefs(ulRef, ref)}
-                className="tree-list"
-                role={isRoot ? 'tree' : 'group'}
-                tabIndex={computed(() => {
-                    if (isRoot) return treeRootContext.currentlyFocusableNode.value === null ? 0 : -1;
+                ref={el => { ulRef = el; props.ref?.(el); }}
+                class="tree-list"
+                role={isRoot() ? 'tree' : 'group'}
+                tabIndex={(() => {
+                    if (isRoot()) return treeRootContext.currentlyFocusableNode === null ? 0 : -1;
                     return undefined;
-                })}
+                })()}
                 onFocus={handleFocus}
                 onContextMenu={handleContextMenu}
                 onKeyDown={handleKeyDown}
             >
-                {computed(() => nodesIncludingNew.value.map((node) => (
-                    'creatingType' in node
-                        ? (
-                            <TreeNodeCreationForm
-                                creatingType={node.creatingType}
-                                parents={parents}
-                            />
-                        )
-                        : <TreeNodeView node={node} parents={parents} />
-                )))}
+                <For each={nodesIncludingNew()}>
+                    {(node) => (
+                        'creatingType' in node
+                            ? (
+                                <TreeNodeCreationForm
+                                    creatingType={node.creatingType}
+                                    parents={props.parents}
+                                />
+                            )
+                            : <TreeNodeView node={node} parents={props.parents} />
+                    )}
+                </For>
             </ul>
-            <Show when={computed(() => contextMenuOpenAtPosition.value !== null)}>
-                {() => (
-                    <ContextMenu
-                        position={contextMenuOpenAtPosition.value!}
-                        items={treeRootContext.actions
-                            .filter((action) => action.applicable(parents.at(-1) ?? null, parents.slice(0, -1)))
-                            .map((action) => ({
-                                name: action.name,
-                                action: () => action.execute(parents.at(-1) ?? null, parents.slice(0, -1), null),
-                            }))}
-                        onCancel={handleContextMenuCancel}
-                    />
-                )}
+            <Show when={contextMenuOpenAtPosition() !== null}>
+                <ContextMenu
+                    position={contextMenuOpenAtPosition()!}
+                    items={treeRootContext.actions
+                        .filter((action) => action.applicable(props.parents.at(-1) ?? null, props.parents.slice(0, -1)))
+                        .map((action) => ({
+                            name: action.name,
+                            action: () => action.execute(props.parents.at(-1) ?? null, props.parents.slice(0, -1), null),
+                        }))}
+                    onCancel={handleContextMenuCancel}
+                />
             </Show>
         </>
     );
@@ -289,100 +282,100 @@ interface TreeNodeViewProps {
     parents: TreeNode[];
 }
 
-const TreeNodeView = ({ node, parents, ...other }: TreeNodeViewProps) => {
+const TreeNodeView = (props: TreeNodeViewProps) => {
     const treeRootContext = useContext(TreeRootContext);
     if (treeRootContext === null) {
         throw new Error('TreeRootContext must be provided');
     }
 
-    const ref = useRef<HTMLElement | null>(null);
-    const isOpened = useSignal(false);
-    const wasLastFocused = useSignal(false);
-    const contextMenuOpenAtPosition = useSignal<TwoDim | null>(null);
-    const currentlyRenaming = useSignal<Parameters<TreeNodeAPI['rename']>[0] | null>(null);
+    let ref: HTMLElement | undefined;
+    const [isOpened, setIsOpened] = createSignal(false);
+    const [wasLastFocused, setWasLastFocused] = createSignal(false);
+    const [contextMenuOpenAtPosition, setContextMenuOpenAtPosition] = createSignal<TwoDim | null>(null);
+    const [currentlyRenaming, setCurrentlyRenaming] = createSignal<Parameters<TreeNodeAPI['rename']>[0] | null>(null);
 
-    useSignalEffect(() => {
-        if (treeRootContext.creatingNewNode.value?.underNode === node) {
-            isOpened.value = true;
+    createEffect(() => {
+        if (treeRootContext.creatingNewNode?.underNode === props.node) {
+            setIsOpened(true);
         }
     });
 
-    const handleFocus = useCallback((event: FocusEvent) => {
-        treeRootContext.currentlyFocusableNode.value = node;
-    }, [treeRootContext, node]);
+    const handleFocus = (event: FocusEvent) => {
+        treeRootContext.currentlyFocusableNode = props.node;
+    };
 
-    const handleClick = useCallback((event: MouseEvent) => {
+    const handleClick = (event: MouseEvent) => {
         event.stopPropagation();
 
-        if (node.children) {
-            isOpened.value = !isOpened.value;
+        if (props.node.children) {
+            setIsOpened(!isOpened());
         }
-    }, [treeRootContext, node]);
+    };
 
-    const handleKeyDown = useCallback((event: KeyboardEvent) => {
-        if (event.key === 'ArrowDown' && node.children && node.children.length > 0 && isOpened.value) {
-            treeRootContext.focus(node.children[0]);
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'ArrowDown' && props.node.children && props.node.children.length > 0 && isOpened()) {
+            treeRootContext.focus(props.node.children[0]);
             event.stopPropagation();
-        } else if (event.key === 'ArrowRight' && node.children && event.target === ref.current) {
-            if (isOpened.value) {
-                if (node.children.length > 0) {
-                    treeRootContext.focus(node.children[0]);
+        } else if (event.key === 'ArrowRight' && props.node.children && event.target === ref) {
+            if (isOpened()) {
+                if (props.node.children.length > 0) {
+                    treeRootContext.focus(props.node.children[0]);
                     event.stopPropagation();
                 }
             } else {
-                isOpened.value = true;
+                setIsOpened(true);
                 event.stopPropagation();
             }
         } else if (event.key === 'ArrowLeft') {
-            if (!node.children || !isOpened.value) {
-                treeRootContext.focus(parents.at(-1) ?? null);
+            if (!props.node.children || !isOpened()) {
+                treeRootContext.focus(props.parents.at(-1) ?? null);
                 event.stopPropagation();
             } else {
-                isOpened.value = false;
+                setIsOpened(false);
                 event.stopPropagation();
             }
         }
-    }, [treeRootContext, node, parents]);
+    };
 
-    const handleContextMenu = useCallback((event: MouseEvent) => {
+    const handleContextMenu = (event: MouseEvent) => {
         event.preventDefault();
         event.stopPropagation();
-        wasLastFocused.value = true;
-        contextMenuOpenAtPosition.value = [event.clientX, event.clientY];
-    }, []);
+        setWasLastFocused(true);
+        setContextMenuOpenAtPosition([event.clientX, event.clientY]);
+    };
 
-    const handleContextMenuCancel = useCallback(() => {
-        ref.current?.focus();
-        wasLastFocused.value = false;
-        contextMenuOpenAtPosition.value = null;
-    }, []);
+    const handleContextMenuCancel = () => {
+        ref?.focus();
+        setWasLastFocused(false);
+        setContextMenuOpenAtPosition(null);
+    };
 
-    const saveNewName = useCallback(async (input: HTMLInputElement, dryRun: boolean) => {
+    const saveNewName = async (input: HTMLInputElement, dryRun: boolean) => {
         const newName = input.value.trim();
         if (newName === '') {
             input.setCustomValidity('');
             return;
         }
         try {
-            await currentlyRenaming.value!.execute({
+            await currentlyRenaming()!.execute({
                 newName: newName,
                 dryRun: dryRun,
             });
             input.setCustomValidity('');
             if (dryRun)
                 return;
-            currentlyRenaming.value = null;
+            setCurrentlyRenaming(null);
         } catch (e) {
             input.setCustomValidity(String(e));
             input.reportValidity();
         }
-    }, []);
+    };
 
-    const handleInputBlur = useCallback((event: FocusEvent) => {
+    const handleInputBlur = (event: FocusEvent) => {
         saveNewName(event.target as HTMLInputElement, false);
-    }, [saveNewName]);
+    };
 
-    const handleInputKeyDown = useCallback((event: KeyboardEvent) => {
+    const handleInputKeyDown = (event: KeyboardEvent) => {
         event.stopPropagation();
         if (event.key === 'Enter') {
             event.preventDefault();
@@ -390,24 +383,24 @@ const TreeNodeView = ({ node, parents, ...other }: TreeNodeViewProps) => {
         }
         if (event.key === 'Escape') {
             event.preventDefault();
-            currentlyRenaming.value = null;
+            setCurrentlyRenaming(null);
         }
-    }, [saveNewName]);
+    };
 
-    const handleInputInput = useCallback((event: InputEvent) => {
+    const handleInputInput = (event: InputEvent) => {
         saveNewName(event.target as HTMLInputElement, true);
-    }, [saveNewName]);
+    };
 
     const treeNodeAPI: TreeNodeAPI = {
         rename(options) {
-            currentlyRenaming.value = options;
+            setCurrentlyRenaming(options);
         },
     };
 
     const inlineActions = [];
     const hiddenActions = [];
     for (const action of treeRootContext.actions) {
-        if (!action.applicable(node, parents)) {
+        if (!action.applicable(props.node, props.parents)) {
             continue;
         }
         if (action.showInline && action.iconName) {
@@ -419,96 +412,88 @@ const TreeNodeView = ({ node, parents, ...other }: TreeNodeViewProps) => {
 
     return (
         <li
-            ref={mergeRefs(ref, (element) => {
-                element ? treeRootContext.nodeElements.set(node, element) : treeRootContext.nodeElements.delete(node);
-            })}
+            ref={(element) => {
+                ref = element;
+                element ? treeRootContext.nodeElements.set(props.node, element) : treeRootContext.nodeElements.delete(props.node);
+            }}
             role="treeitem"
-            className={computed(() => classNames('tree-list-item', wasLastFocused.value && 'last-focused'))}
-            aria-expanded={node.children ? isOpened : undefined}
-            tabIndex={computed(() => node === treeRootContext.currentlyFocusableNode.value ? 0 : -1)}
+            class={classNames('tree-list-item', wasLastFocused() && 'last-focused')}
+            aria-expanded={props.node.children ? isOpened() : undefined}
+            tabIndex={props.node === treeRootContext.currentlyFocusableNode ? 0 : -1}
             onFocus={handleFocus}
             onKeyDown={handleKeyDown}
         >
             <div
-                className="tree-node-line"
-                style={{ '--level': parents.length }}
+                class="tree-node-line"
+                style={{ '--level': props.parents.length }}
                 onClick={handleClick}
                 onContextMenu={handleContextMenu}
             >
-                {node.children ? computed(() => (
-                    <Icon className="tree-node-chevron" name={isOpened.value ? 'chevron-down' : 'chevron-right'} />
-                )) : null}
-                {computed(() => (
-                    <Icon className="tree-node-icon" name={node.children ? isOpened.value ? 'folder-opened' : 'folder' : 'file'} aria-hidden />
-                ))}
-                <Show when={currentlyRenaming}>
-                    {() => (
-                        <input
-                            ref={el => {
-                                if (el) {
-                                    el.focus();
-                                    el.setSelectionRange(0, modulo(el.value.lastIndexOf('.'), el.value.length + 1));
-                                }
-                            }}
-                            className="tree-node-name"
-                            type="text"
-                            defaultValue={node.name}
-                            autocomplete="off"
-                            onBlur={handleInputBlur}
-                            onClick={e => e.stopPropagation()}
-                            onKeyDown={handleInputKeyDown}
-                            onInput={handleInputInput}
-                        />
-                    )}
+                {props.node.children ? (
+                    <Icon class="tree-node-chevron" name={isOpened() ? 'chevron-down' : 'chevron-right'} />
+                ) : null}
+                <Icon class="tree-node-icon" name={props.node.children ? isOpened() ? 'folder-opened' : 'folder' : 'file'} aria-hidden />
+                <Show when={currentlyRenaming()}>
+                    <input
+                        ref={el => requestAnimationFrame(() => {
+                            if (el) {
+                                el.focus();
+                                el.setSelectionRange(0, modulo(el.value.lastIndexOf('.'), el.value.length + 1));
+                            }
+                        })}
+                        class="tree-node-name"
+                        type="text"
+                        value={props.node.name}
+                        autocomplete="off"
+                        onBlur={handleInputBlur}
+                        onClick={e => e.stopPropagation()}
+                        onKeyDown={handleInputKeyDown}
+                        onInput={handleInputInput}
+                    />
                 </Show>
-                <Show when={computed(() => !currentlyRenaming.value)}>
-                    <span className="tree-node-name">{node.name}</span>
+                <Show when={!currentlyRenaming()}>
+                    <span class="tree-node-name">{props.node.name}</span>
                 </Show>
-                <div className="tree-node-actions">
+                <div class="tree-node-actions">
                     {inlineActions.map((action) => (
                         <button
                             type="button"
-                            className="button"
-                            onClick={() => action.execute(node, parents, treeNodeAPI)}
+                            class="button"
+                            onClick={() => action.execute(props.node, props.parents, treeNodeAPI)}
                         >
-                            <Icon className="aligned-icon" name={action.iconName!} />
-                            <span className="visually-hidden">{action.name}</span>
+                            <Icon class="aligned-icon" name={action.iconName!} />
+                            <span class="visually-hidden">{action.name}</span>
                         </button>
                     ))}
                     {hiddenActions.length ? (
                         <button
                             type="button"
-                            className="button"
+                            class="button"
                             onClick={handleContextMenu}
                         >
                             <IconMore class="aligned-icon" />
-                            <span className="visually-hidden">More</span>
+                            <span class="visually-hidden">More</span>
                         </button>
                     ) : null}
                 </div>
             </div>
-            <Show when={computed(() => node.children && isOpened.value)}>
-                {() => (
-                    <TreeList
-                        nodes={node.children!}
-                        parents={[...parents, node]}
-                        {...other}
-                    />
-                )}
+            <Show when={props.node.children && isOpened()}>
+                <TreeList
+                    nodes={props.node.children!}
+                    parents={[...props.parents, props.node]}
+                />
             </Show>
-            <Show when={computed(() => contextMenuOpenAtPosition.value !== null)}>
-                {() => (
-                    <ContextMenu
-                        position={contextMenuOpenAtPosition.value!}
-                        items={treeRootContext.actions
-                            .filter((action) => action.applicable(node, parents))
-                            .map((action) => ({
-                                name: action.name,
-                                action: () => action.execute(node, parents, treeNodeAPI),
-                            }))}
-                        onCancel={handleContextMenuCancel}
-                    />
-                )}
+            <Show when={contextMenuOpenAtPosition() !== null}>
+                <ContextMenu
+                    position={contextMenuOpenAtPosition()!}
+                    items={treeRootContext.actions
+                        .filter((action) => action.applicable(props.node, props.parents))
+                        .map((action) => ({
+                            name: action.name,
+                            action: () => action.execute(props.node, props.parents, treeNodeAPI),
+                        }))}
+                    onCancel={handleContextMenuCancel}
+                />
             </Show>
         </li>
     );
@@ -518,61 +503,71 @@ interface TreeViewProps<N extends TreeNode> {
     nodes: N[];
     emptyTreeMessage?: string;
     actions: TreeNodeAction<N>[];
-    api: Ref<TreeViewAPI<N>>;
+    api: (api: TreeViewAPI<N>) => void;
 }
 
-export const TreeView = <N extends TreeNode>({ nodes, emptyTreeMessage, actions, ...other }: TreeViewProps<N>) => {
-    const rootListRef = useRef<HTMLElement>(null);
-    const nodeElements = useRef(new Map<TreeNode, HTMLElement>());
-    const currentlyFocusableNode = useMemo(() => signal<TreeNode | null>(null), [nodes]);
-    const creatingNewNode = useSignal<TreeRootContextValue['creatingNewNode']['value']>(null);
-    const showEmptyMessage = useMemo(() => computed(() => nodes.length === 0 && creatingNewNode.value === null), [nodes]);
+export const TreeView = <N extends TreeNode>(props: TreeViewProps<N>) => {
+    let rootListRef: HTMLElement | undefined;
+    const nodeElements = new Map<TreeNode, HTMLElement>();
+    const [currentlyFocusableNode, setCurrentlyFocusableNode] = createSignal<TreeNode | null>(null);
+    const [creatingNewNode, setCreatingNewNode] = createSignal<TreeRootContextValue['creatingNewNode']>(null);
 
-    const treeRootContextValue = useMemo(() => ({
-        rootNodes: nodes,
-        currentlyFocusableNode,
-        nodeElements: nodeElements.current,
-        creatingNewNode,
-        actions: actions as TreeNodeAction<TreeNode>[],
+    createComputed(() => {
+        props.nodes;
+        setCurrentlyFocusableNode(null);
+    });
+
+    const treeRootContextValue = {
+        get rootNodes() {
+            return props.nodes;
+        },
+        get currentlyFocusableNode() {
+            return currentlyFocusableNode();
+        },
+        set currentlyFocusableNode(value) {
+            setCurrentlyFocusableNode(value);
+        },
+        nodeElements: nodeElements,
+        get creatingNewNode() {
+            return creatingNewNode();
+        },
+        set creatingNewNode(value) {
+            setCreatingNewNode(value);
+        },
+        get actions() {
+            return props.actions as TreeNodeAction<TreeNode>[];
+        },
 
         focus(node) {
-            treeRootContextValue.currentlyFocusableNode.value = node;
+            treeRootContextValue.currentlyFocusableNode = node;
             if (node) {
                 treeRootContextValue.nodeElements.get(node)?.focus();
             } else {
-                rootListRef.current?.focus();
+                rootListRef?.focus();
             }
         },
-    }) satisfies TreeRootContextValue, [
-        nodes,
-        currentlyFocusableNode,
-        nodeElements.current,
-        creatingNewNode,
-        actions,
-    ]);
+    } satisfies TreeRootContextValue;
 
-    const api = useMemo(() => ({
+    const api = {
         createFile(options) {
-            creatingNewNode.value = { ...options, type: 'file' };
+            setCreatingNewNode({ ...options, type: 'file' });
         },
 
         createFolder(options) {
-            creatingNewNode.value = { ...options, type: 'folder' };
+            setCreatingNewNode({ ...options, type: 'folder' });
         },
-    }) satisfies TreeViewAPI<N>, [treeRootContextValue, currentlyFocusableNode]);
+    } satisfies TreeViewAPI<N>;
 
-    useEffect(() => {
-        return writeToRef(other.api, api);
-    }, [other.api, api]);
+    props.api(api);
 
     return (
-        <TreeRootContext value={treeRootContextValue}>
-            <Show when={showEmptyMessage}>
-                <i>{emptyTreeMessage ?? 'No entries'}</i>
+        <TreeRootContext.Provider value={treeRootContextValue}>
+            <Show
+                when={props.nodes.length > 0 || creatingNewNode() !== null}
+                fallback={<i>{props.emptyTreeMessage ?? 'No entries'}</i>}
+            >
+                <TreeList ref={el => rootListRef = el} nodes={props.nodes} parents={[]} />
             </Show>
-            <Show when={computed(() => !showEmptyMessage.value)}>
-                <TreeList ref={rootListRef} nodes={nodes} parents={[]} />
-            </Show>
-        </TreeRootContext>
+        </TreeRootContext.Provider>
     );
 };

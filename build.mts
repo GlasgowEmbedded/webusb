@@ -1,6 +1,7 @@
 import * as process from 'node:process';
 import * as child_process from 'node:child_process';
 import * as esbuild from 'esbuild';
+import solidPlugin from './build-lib/esbuild-plugin-solid.mts';
 import metaUrlPlugin from '@chialab/esbuild-plugin-meta-url';
 
 const gitCommit = child_process.execSync('git rev-parse HEAD', { encoding: 'utf-8' }).replace(/\n$/, '');
@@ -10,6 +11,7 @@ const target = 'chrome137';
 const options = {
     logLevel: 'info',
     plugins: [
+        solidPlugin(),
         metaUrlPlugin(),
     ],
     bundle: true,
@@ -27,6 +29,9 @@ const options = {
         'globalThis.IS_PRODUCTION': (mode === 'minify' ? 'true' : 'false'),
         'globalThis.GIT_COMMIT': `"${mode === 'minify' ? gitCommit : 'HEAD'}"`,
     },
+    conditions: [
+        ['watch', 'serve'].includes(mode) ? 'development' : 'production',
+    ],
     external: [
         'fs/promises', // @yowasp/yosys
         'node:*', // pyodide
