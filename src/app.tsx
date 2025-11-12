@@ -10,7 +10,7 @@ import { Terminal } from './terminal';
 import { GlasgowFileSystem, type FileTreeNode } from './filesystem';
 
 import { PanelContainer } from './components/panel';
-import { TreeView, type TreeViewAPI } from './components/tree-view';
+import { TreeView } from './components/tree-view';
 
 import { onlyTruthy } from './helpers/truthy-filter';
 import { joinPath } from './helpers/path';
@@ -104,7 +104,9 @@ declare global {
         interrupt();
     };
 
-    let treeViewAPI: TreeViewAPI<FileTreeNode> | null = null;
+    let [creatingNewFileNode, setCreatingNewFileNode] = createSignal<
+        Parameters<typeof TreeView<FileTreeNode>>[0]['creatingNewNode']
+    >(null);
 
     const handleFileTreeNodeAction = async (node: FileTreeNode) => {
         let fileContents = await glasgowFS.readFile(node.path);
@@ -128,7 +130,8 @@ declare global {
             fileReader.addEventListener('loadend', () => {
                 const fileContents = new Uint8Array(fileReader.result as ArrayBuffer);
 
-                treeViewAPI!.createFile({
+                setCreatingNewFileNode({
+                    type: 'file',
                     underNode: node,
                     defaultName: file.name,
                     async execute({ node, parents, name, dryRun }) {
@@ -142,7 +145,8 @@ declare global {
     };
 
     const createNewFolder = (node: FileTreeNode | null) => {
-        treeViewAPI!.createFolder({
+        setCreatingNewFileNode({
+            type: 'folder',
             underNode: node,
             async execute({ node, parents, name, dryRun }) {
                 await glasgowFS.createPath(joinPath(HOME_DIRECTORY, ...parents, node, name), 'folder', null, dryRun);
@@ -159,21 +163,14 @@ declare global {
     };
 
     const handleFileDuplicate = async (node: FileTreeNode, parents: FileTreeNode[]) => {
-        let options: (
-            | Parameters<NonNullable<typeof treeViewAPI>['createFile']>[0]
-            | Parameters<NonNullable<typeof treeViewAPI>['createFolder']>[0]
-        ) = {
+        setCreatingNewFileNode({
+            type: node.children ? 'folder' : 'file',
             underNode: parents.at(-1) ?? null,
             defaultName: node.name,
             async execute({ name, dryRun }) {
                 await glasgowFS.duplicatePath(node.path, joinPath(HOME_DIRECTORY, ...parents, name), dryRun);
             },
-        };
-        if (!node.children) {
-            treeViewAPI!.createFile(options);
-        } else {
-            treeViewAPI!.createFolder(options);
-        }
+        });
     };
 
     const handleFileRename = async (node: FileTreeNode, parents: FileTreeNode[], newName: string, dryRun: boolean) => {
@@ -255,6 +252,8 @@ declare global {
                                         ? (
                                             <TreeView
                                                 nodes={fileTree.tree}
+                                                creatingNewNode={creatingNewFileNode()}
+                                                onCancelNodeCreation={() => setCreatingNewFileNode(null)}
                                                 emptyTreeMessage="Directory is empty"
                                                 actions={[
                                                     {
@@ -302,7 +301,6 @@ declare global {
                                                         execute: (node, parents) => handleFileDeletion(node!, parents),
                                                     },
                                                 ]}
-                                                api={(value) => treeViewAPI = value}
                                             />
                                         )
                                         : <i>{isInitializing() ? 'Waiting...' : 'Unavailable'}</i>

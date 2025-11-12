@@ -20,20 +20,6 @@ interface TreeNodeAction<N extends TreeNode> {
     showInline?: boolean;
 }
 
-export interface TreeViewAPI<N extends TreeNode> {
-    createFile(options: {
-        underNode: TreeNode | null;
-        defaultName?: string;
-        execute(options: { node: N | null; parents: N[]; name: string; dryRun: boolean; }): Promise<void>;
-    }): void;
-
-    createFolder(options: {
-        underNode: TreeNode | null;
-        defaultName?: string;
-        execute(options: { node: N | null; parents: N[]; name: string; dryRun: boolean; }): Promise<void>;
-    }): void;
-}
-
 interface TreeNodeAPI {
     rename(options: {
         execute(options: { newName: string; dryRun: boolean; }): Promise<void>;
@@ -44,12 +30,8 @@ interface TreeRootContextValue {
     rootNodes: TreeNode[];
     nodeElements: Map<TreeNode, HTMLElement>;
     currentlyFocusableNode: TreeNode | null;
-    creatingNewNode: (
-        (
-            | Parameters<TreeViewAPI<TreeNode>['createFile']>[0]
-            | Parameters<TreeViewAPI<TreeNode>['createFolder']>[0]
-        ) & { type: 'file' | 'folder'; }
-    ) | null;
+    creatingNewNode: TreeViewProps<any>['creatingNewNode'];
+    cancelNodeCreation: () => void;
     actions: TreeNodeAction<TreeNode>[];
     focus(node: TreeNode | null): void;
 }
@@ -84,14 +66,14 @@ const TreeNodeCreationForm = (props: TreeNodeCreationProps) => {
             nameInput.setCustomValidity('');
             if (dryRun)
                 return;
-            treeRootContext.creatingNewNode = null;
+            treeRootContext.cancelNodeCreation();
         } catch (e) {
             nameInput.setCustomValidity(String(e));
         }
     };
 
     const cancel = () => {
-        treeRootContext.creatingNewNode = null;
+        treeRootContext.cancelNodeCreation();
     };
 
     const handleBlur = (_event: FocusEvent) => {
@@ -502,16 +484,21 @@ const TreeNodeView = (props: TreeNodeViewProps) => {
 
 interface TreeViewProps<N extends TreeNode> {
     nodes: N[];
+    creatingNewNode: null | {
+        type: 'file' | 'folder';
+        underNode: TreeNode | null;
+        defaultName?: string;
+        execute(options: { node: N | null; parents: N[]; name: string; dryRun: boolean; }): Promise<void>;
+    };
     emptyTreeMessage?: string;
     actions: TreeNodeAction<N>[];
-    api: (api: TreeViewAPI<N>) => void;
+    onCancelNodeCreation: () => void;
 }
 
 export const TreeView = <N extends TreeNode>(props: TreeViewProps<N>) => {
     let rootListRef: HTMLElement | undefined;
     const nodeElements = new Map<TreeNode, HTMLElement>();
     const [currentlyFocusableNode, setCurrentlyFocusableNode] = createSignal<TreeNode | null>(null);
-    const [creatingNewNode, setCreatingNewNode] = createSignal<TreeRootContextValue['creatingNewNode']>(null);
 
     createComputed(() => {
         props.nodes;
@@ -530,10 +517,10 @@ export const TreeView = <N extends TreeNode>(props: TreeViewProps<N>) => {
         },
         nodeElements: nodeElements,
         get creatingNewNode() {
-            return creatingNewNode();
+            return props.creatingNewNode;
         },
-        set creatingNewNode(value) {
-            setCreatingNewNode(value);
+        get cancelNodeCreation() {
+            return props.onCancelNodeCreation;
         },
         get actions() {
             return props.actions as TreeNodeAction<TreeNode>[];
@@ -549,22 +536,10 @@ export const TreeView = <N extends TreeNode>(props: TreeViewProps<N>) => {
         },
     } satisfies TreeRootContextValue;
 
-    const api = {
-        createFile(options) {
-            setCreatingNewNode({ ...options, type: 'file' });
-        },
-
-        createFolder(options) {
-            setCreatingNewNode({ ...options, type: 'folder' });
-        },
-    } satisfies TreeViewAPI<N>;
-
-    props.api(api);
-
     return (
         <TreeRootContext.Provider value={treeRootContextValue}>
             <Show
-                when={props.nodes.length > 0 || creatingNewNode() !== null}
+                when={props.nodes.length > 0 || props.creatingNewNode !== null}
                 fallback={<i>{props.emptyTreeMessage ?? 'No entries'}</i>}
             >
                 <TreeList ref={el => rootListRef = el} nodes={props.nodes} parents={[]} />
