@@ -12,8 +12,8 @@ import { GlasgowFileSystem, type FileTreeNode } from './filesystem';
 import { PanelContainer } from './components/panel';
 import { TreeView, type TreeViewAPI } from './components/tree-view';
 
+import { onlyTruthy } from './helpers/truthy-filter';
 import { joinPath } from './helpers/path';
-import { truthyFilter } from './helpers/truthy-filter';
 
 import { GLASGOW_WHEEL_URL, HOME_DIRECTORY } from './config';
 import shell from './shell.py';
@@ -191,7 +191,7 @@ declare global {
                         name: 'Terminal',
                         iconName: 'terminal',
                         className: 'terminal-panel',
-                        actions: computed(() => [
+                        actions: computed(() => onlyTruthy([
                             'showDirectoryPicker' in window && {
                                 name: isNativeFSMounted.value ? 'Unmount /mnt' : 'Mount /mnt',
                                 disabled: isNativeFSMountDisabled.value,
@@ -204,7 +204,7 @@ declare global {
                                 disabled: !isInterruptExecutionButtonEnabled.value,
                                 handleAction: handleInterruptExecutionClick,
                             },
-                        ].filter(truthyFilter)),
+                        ])),
                         children: (
                             <div class="panel-content" id="terminal" />
                         ),
