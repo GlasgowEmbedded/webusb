@@ -2,7 +2,6 @@ import * as process from 'node:process';
 import * as child_process from 'node:child_process';
 import * as esbuild from 'esbuild';
 import metaUrlPlugin from '@chialab/esbuild-plugin-meta-url';
-import htmlPlugin from '@chialab/esbuild-plugin-html';
 
 const gitCommit = child_process.execSync('git rev-parse HEAD', { encoding: 'utf-8' }).replace(/\n$/, '');
 
@@ -12,14 +11,11 @@ const options = {
     logLevel: 'info',
     plugins: [
         metaUrlPlugin(),
-        htmlPlugin({
-            scriptsTarget: target,
-            modulesTarget: target,
-        }),
     ],
     bundle: true,
     splitting: false,
     loader: {
+        '.html': 'copy',
         '.py': 'text',
         '.json': 'file',
         '.wasm': 'file',
@@ -28,6 +24,7 @@ const options = {
         '.whl': 'file',
     },
     define: {
+        'globalThis.IS_PRODUCTION': (mode === 'minify' ? 'true' : 'false'),
         'globalThis.GIT_COMMIT': `"${mode === 'minify' ? gitCommit : 'HEAD'}"`,
     },
     external: [
@@ -48,6 +45,7 @@ const options = {
     publicPath: '.',
     entryPoints: {
         'index': 'src/index.html',
+        'app': 'src/app.tsx',
         'pyodide.asm': 'src/vendor/pyodide/pyodide.asm.wasm',
     },
 } satisfies esbuild.BuildOptions;

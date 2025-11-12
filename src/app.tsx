@@ -21,6 +21,7 @@ import shell from './shell.py';
 import './app.css';
 
 declare global {
+    var IS_PRODUCTION: boolean;
     var GIT_COMMIT: string;
 
     namespace WebAssembly {
@@ -493,3 +494,7 @@ declare global {
     isInitializing.value = false;
     await pyodide.runPythonAsync(shell);
 })();
+
+// https://esbuild.github.io/api/#live-reload
+if (!globalThis.IS_PRODUCTION)
+    new EventSource('/esbuild').addEventListener('change', () => location.reload());
