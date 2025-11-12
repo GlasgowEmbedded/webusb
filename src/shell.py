@@ -60,7 +60,10 @@ class InteractiveConsole:
         return line
 
     async def interact(self):
-        await js.syncFSFromBacking()
+        try:
+            await js.syncFSFromBacking()
+        except BaseException as exn:
+            print_exception(exn)
         try:
             command = self.read_line()
             sys.argv = ["glasgow", *shlex.split(command)]
@@ -85,7 +88,10 @@ class InteractiveConsole:
             finally:
                 js.setIsExecutingCommand(False)
         finally:
-            await js.syncFSToBacking()
+            try:
+                await js.syncFSToBacking()
+            except BaseException as exn:
+                print_exception(exn)
             print()
 
 
