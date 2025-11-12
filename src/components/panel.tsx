@@ -1,9 +1,10 @@
 import { createComputed, createSignal, For, onCleanup, Show, type JSX } from 'solid-js';
-import classNames from 'classnames';
 
 import { ContextMenu, type TwoDim } from './context-menu';
 import { Icon } from './icon';
 import { IconMore } from './icon-more';
+
+import { cls } from '../helpers/class-names';
 
 const resizeObserverCallbacks = new Map<Element, (entry: ResizeObserverEntry) => void>();
 
@@ -175,14 +176,14 @@ export const PanelContainer = (props: PanelContainerProps) => {
     return (
         <div
             ref={rootRefCallback}
-            class={classNames('panel-container', isSinglePanel() && 'single-panel')}
+            class={cls('panel-container', isSinglePanel() && 'single-panel')}
         >
             <Show when={isSinglePanel()}>
                 <header class="panel-header">
                     <For each={props.panels}>
                         {(panel, idx) => (
                             <button
-                                class={classNames('panel-title', panel.className && `${panel.className}-title`, (activePanelIdx() === idx()) && 'active')}
+                                class={cls('panel-title', panel.className && `${panel.className}-title`, (activePanelIdx() === idx()) && 'active')}
                                 aria-label={panel.name}
                                 onClick={() => switchToPanel(idx())}
                                 onPointerDown={handlePanelButtonPointerDown(idx())}
@@ -198,7 +199,7 @@ export const PanelContainer = (props: PanelContainerProps) => {
                 <For each={props.panels}>
                     {(panel, idx) => (
                         <div
-                            class={classNames(
+                            class={cls(
                                 'panel',
                                 panel.className,
                                 !isSinglePanel() && 'padded',

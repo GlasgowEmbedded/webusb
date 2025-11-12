@@ -34,7 +34,6 @@
     "@yowasp/nextpnr-ice40": "release",
     "@yowasp/runtime": "^11.0.69",
     "@yowasp/yosys": "release",
-    "classnames": "^2.5.1",
     "esbuild": "^0.25.8",
     "eslint": "^9.31.0",
     "lodash": "^4.17.21",

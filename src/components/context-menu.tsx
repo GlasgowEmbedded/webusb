@@ -1,8 +1,8 @@
 import { createComputed, createEffect, createMemo, createSignal, For, on, type JSX } from 'solid-js';
 import { computePosition, flip, shift, size } from '@floating-ui/dom';
-import classNames from 'classnames';
 
 import { modulo } from '../helpers/modulo';
+import { cls } from '../helpers/class-names';
 
 export type TwoDim = [number, number];
 
@@ -178,7 +178,7 @@ export const ContextMenu = (props: ContextMenuProps) => {
                                     if (element) itemElements[idx()] = element;
                                     else delete itemElements[idx()];
                                 }}
-                                class={classNames('menu-list-item', currentIndex() === idx() && 'focused')}
+                                class={cls('menu-list-item', currentIndex() === idx() && 'focused')}
                                 tabIndex={currentIndex() === idx() ? 0 : -1}
                                 onClick={handleItemClick(item)}
                                 onKeyDown={handleItemKeyDown(item)}

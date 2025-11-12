@@ -1,10 +1,11 @@
 import { createComputed, createContext, createEffect, createMemo, createSignal, For, Show, useContext } from 'solid-js';
-import classNames from 'classnames';
 
-import { modulo } from '../helpers/modulo';
 import { ContextMenu, type TwoDim } from './context-menu';
 import { Icon } from './icon';
 import { IconMore } from './icon-more';
+
+import { cls } from '../helpers/class-names';
+import { modulo } from '../helpers/modulo';
 
 export interface TreeNode {
     name: string;
@@ -417,7 +418,7 @@ const TreeNodeView = (props: TreeNodeViewProps) => {
                 element ? treeRootContext.nodeElements.set(props.node, element) : treeRootContext.nodeElements.delete(props.node);
             }}
             role="treeitem"
-            class={classNames('tree-list-item', wasLastFocused() && 'last-focused')}
+            class={cls('tree-list-item', wasLastFocused() && 'last-focused')}
             aria-expanded={props.node.children ? isOpened() : undefined}
             tabIndex={props.node === treeRootContext.currentlyFocusableNode ? 0 : -1}
             onFocus={handleFocus}
