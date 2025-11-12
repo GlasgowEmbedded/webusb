@@ -12,7 +12,7 @@ import { GlasgowFileSystem, type FileTreeNode } from './filesystem';
 import { PanelContainer } from './components/panel';
 import { TreeView } from './components/tree-view';
 
-import { onlyTruthy } from './helpers/truthy-filter';
+import { onlyTruthy } from './helpers/comparison';
 import { joinPath } from './helpers/path';
 
 import { GLASGOW_WHEEL_URL, HOME_DIRECTORY } from './config';

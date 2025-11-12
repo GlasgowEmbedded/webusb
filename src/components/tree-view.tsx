@@ -1,6 +1,6 @@
 import { createComputed, createContext, createEffect, createMemo, createSignal, For, Show, useContext } from 'solid-js';
 
-import { ContextMenu, type TwoDim } from './context-menu';
+import { ContextMenu, type Point2D } from './context-menu';
 import { Icon } from './icon';
 import { IconMore } from './icon-more';
 
@@ -139,7 +139,7 @@ const TreeList = (props: TreeListProps) => {
     const isRoot = () => props.parents.length === 0;
 
     let ulRef: HTMLUListElement | undefined;
-    const [contextMenuOpenAtPosition, setContextMenuOpenAtPosition] = createSignal<TwoDim | null>(null);
+    const [contextMenuOpenAtPosition, setContextMenuOpenAtPosition] = createSignal<Point2D | null>(null);
 
     const nodesIncludingNew = createMemo<(TreeNode | { creatingType: 'file' | 'folder' })[]>(() => {
         const creatingNewNode = treeRootContext.creatingNewNode;
@@ -246,7 +246,7 @@ const TreeList = (props: TreeListProps) => {
             </ul>
             <Show when={contextMenuOpenAtPosition() !== null}>
                 <ContextMenu
-                    position={contextMenuOpenAtPosition()!}
+                    anchor={contextMenuOpenAtPosition()!}
                     items={treeRootContext.actions
                         .filter((action) => action.applicable(props.parents.at(-1) ?? null, props.parents.slice(0, -1)))
                         .map((action) => ({
@@ -274,7 +274,7 @@ const TreeNodeView = (props: TreeNodeViewProps) => {
     let ref: HTMLElement | undefined;
     const [isOpened, setIsOpened] = createSignal(false);
     const [wasLastFocused, setWasLastFocused] = createSignal(false);
-    const [contextMenuOpenAtPosition, setContextMenuOpenAtPosition] = createSignal<TwoDim | null>(null);
+    const [contextMenuOpenAtPosition, setContextMenuOpenAtPosition] = createSignal<Point2D | null>(null);
     const [currentlyRenaming, setCurrentlyRenaming] = createSignal<Parameters<TreeNodeAPI['rename']>[0] | null>(null);
 
     createEffect(() => {
@@ -468,7 +468,7 @@ const TreeNodeView = (props: TreeNodeViewProps) => {
             </Show>
             <Show when={contextMenuOpenAtPosition() !== null}>
                 <ContextMenu
-                    position={contextMenuOpenAtPosition()!}
+                    anchor={contextMenuOpenAtPosition()!}
                     items={treeRootContext.actions
                         .filter((action) => action.applicable(props.node, props.parents))
                         .map((action) => ({

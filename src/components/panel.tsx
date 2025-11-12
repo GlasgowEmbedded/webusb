@@ -1,6 +1,6 @@
 import { createComputed, createSignal, For, onCleanup, Show, type JSX } from 'solid-js';
 
-import { ContextMenu, type TwoDim } from './context-menu';
+import { ContextMenu, type Point2D } from './context-menu';
 import { Icon } from './icon';
 import { IconMore } from './icon-more';
 
@@ -39,7 +39,7 @@ interface PanelAction {
     iconName?: string;
     iconOnly?: boolean;
     disabled: boolean;
-    handleAction: (event: Event) => void;
+    handleAction: () => void;
 }
 
 interface PanelActionsProps {
@@ -48,7 +48,7 @@ interface PanelActionsProps {
 
 const PanelActions = (props: PanelActionsProps) => {
     const [numberOfVisibleActions, setNumberOfVisibleActions] = createSignal(props.actions?.length ?? 0);
-    const [actionsMenuOpenAtPosition, setActionsMenuOpenAtPosition] = createSignal<TwoDim | null>(null);
+    const [actionsMenuOpenAtPosition, setActionsMenuOpenAtPosition] = createSignal<Point2D | null>(null);
 
     const visibleActionsWrapperRef = useResizeObserverRef((entry: ResizeObserverEntry) => {
         const wrapper = entry.target as HTMLElement;
@@ -116,10 +116,10 @@ const PanelActions = (props: PanelActionsProps) => {
             </div>
             {(props.actions && actionsMenuOpenAtPosition()) ? (
                 <ContextMenu
-                    position={actionsMenuOpenAtPosition()!}
+                    anchor={actionsMenuOpenAtPosition()!}
                     items={props.actions.slice(numberOfVisibleActions()).map((action) => ({
                         name: action.name,
-                        action: (event) => action.handleAction(event),
+                        action: () => action.handleAction(),
                     }))}
                     onCancel={() => setActionsMenuOpenAtPosition(null)}
                 />
@@ -213,7 +213,7 @@ export const PanelContainer = (props: PanelContainerProps) => {
                                         <span>{panel.name}</span>
                                     </h2>
                                     <Show when={panel.actions && panel.actions.length > 0}>
-                                        {(_) => <PanelActions actions={panel.actions} />}
+                                        <PanelActions actions={panel.actions} />
                                     </Show>
                                 </header>
                             </Show>
