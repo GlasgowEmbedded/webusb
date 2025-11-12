@@ -292,7 +292,7 @@ body {
 #terminal {
     height: 0;
     font-family: monospace;
-    font-size: 15px;
+    font-size: max(13px, min(15px, 2vw));
     overflow: hidden;
 
     /* !important is used to override inline styles */
