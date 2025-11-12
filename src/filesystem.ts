@@ -1,12 +1,8 @@
 import debounce from 'lodash/debounce';
 import type { PyodideAPI } from './vendor/pyodide';
 
-import type { TreeNode } from './components/tree-view';
+import type { FileTreeNode } from './types';
 import { HOME_DIRECTORY, MOUNT_DIRECTORY } from './config';
-
-export interface FileTreeNode extends TreeNode {
-    path: string;
-}
 
 export class GlasgowFileSystem {
     #pyodide: PyodideAPI;
@@ -230,6 +226,7 @@ export class GlasgowFileSystem {
     async unmountNativeFS() {
         this.#pyodide.FS.unmount(MOUNT_DIRECTORY);
         this.#pyodide.FS.rmdir(MOUNT_DIRECTORY);
+        this.#nativeFSMountRoot = null;
     }
 
     async syncFSFromBacking() {

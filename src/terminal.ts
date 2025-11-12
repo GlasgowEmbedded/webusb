@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { openpty } from 'xterm-pty';
 
 import terminalTheme from './terminal-theme';
+import type { TerminalSize, Termios } from './types';
 
 export class Terminal {
     #element: HTMLElement;
@@ -54,39 +55,24 @@ export class Terminal {
         this.#ptyHandle = ptyHandle;
     }
 
-    get columns() {
-        return this.#xterm.cols;
+    get size(): TerminalSize {
+        let { cols, rows } = this.#xterm;
+        return { cols, rows };
     }
 
-    get rows() {
-        return this.#xterm.rows;
-    }
-
-    getPTYAttrs() {
+    getPTYAttrs(): Termios {
         const termios = this.#ptyHandle.ioctl('TCGETS');
         return {
-            c_iflag: termios.iflag,
-            c_oflag: termios.oflag,
-            c_cflag: termios.cflag,
-            c_lflag: termios.lflag,
-            c_cc: [...termios.cc],
+            iflag: termios.iflag,
+            oflag: termios.oflag,
+            cflag: termios.cflag,
+            lflag: termios.lflag,
+            cc: [...termios.cc],
         };
     }
 
-    setPTYAttrs(attrs: {
-        c_iflag: number;
-        c_oflag: number;
-        c_cflag: number;
-        c_lflag: number;
-        c_cc: number[];
-    }) {
-        this.#ptyHandle.ioctl('TCSETS', {
-            iflag: attrs.c_iflag,
-            oflag: attrs.c_oflag,
-            cflag: attrs.c_cflag,
-            lflag: attrs.c_lflag,
-            cc: attrs.c_cc,
-        });
+    setPTYAttrs(attrs: Termios) {
+        this.#ptyHandle.ioctl('TCSETS', attrs);
     }
 
     focus() {
@@ -102,32 +88,10 @@ export class Terminal {
         this.#ptyHandle.write(Array.from(bytes));
     }
 
-    async read(length?: number) {
-        let result = this.#ptyHandle.read(length);
-        if (result.length === 0 && length && length > 0) {
-            await this.waitUntilReadable();
-            result = this.#ptyHandle.read(length);
-        }
-        return new Uint8Array(result);
-    }
-
-    async waitUntilReadable(ms?: number) {
-        await Promise.race([
-            new Promise<void>((resolve) => this.#ptyHandle.onReadable(resolve)),
-            ms ? new Promise<void>((resolve) => setTimeout(resolve, ms)) : null,
-        ].filter(Boolean));
-    }
-
-    get readable() {
-        return this.#ptyHandle.readable;
-    }
-
-    get readableByteCount() {
-        return (this.#ptyHandle as any).fromLdiscToUpperBuffer.length as number;
-    }
-
-    get writable() {
-        return this.#ptyHandle.writable;
+    onResize(handler: (newSize: TerminalSize) => void) {
+        this.#xterm.onResize((newSize) => {
+            handler(newSize);
+        });
     }
 
     onInterrupt(handler: () => void) {
@@ -135,6 +99,12 @@ export class Terminal {
             if (signal === 'SIGINT') {
                 handler();
             }
+        });
+    }
+
+    onReadable(handler: (bytes: Uint8Array<ArrayBuffer>) => void) {
+        this.#ptyHandle.onReadable(() => {
+            handler(new Uint8Array(this.#ptyHandle.read()));
         });
     }
 }

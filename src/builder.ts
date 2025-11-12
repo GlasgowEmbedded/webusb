@@ -8,8 +8,7 @@ export class Builder {
     #packages: Promise<{ [name: string]: string }>;
 
     constructor() {
-        const workerURL = new URL('./builder/worker.ts', import.meta.url);
-        this.#worker = new Worker(workerURL, { type: 'module' });
+        this.#worker = new Worker('builder.worker.js', { type: 'module' });
         this.#busy = true;
         this.#packages = new Promise((resolve, reject) => {
             this.#worker.onmessage = (event: MessageEvent<builderProto.BuilderToAppMessage>) => {

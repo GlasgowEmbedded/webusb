@@ -51,6 +51,8 @@ const options = {
     entryPoints: {
         'index': 'src/index.html',
         'app': 'src/app.tsx',
+        'app.worker': 'src/worker.ts',
+        'builder.worker': 'src/builder/worker.ts',
         'pyodide.asm': 'src/vendor/pyodide/pyodide.asm.wasm',
     },
 } satisfies esbuild.BuildOptions;
@@ -65,7 +67,7 @@ if (mode === 'build' || mode === 'minify') {
     await context.rebuild();
     await context.watch();
     // Specifying `servedir` is necessary for files built by meta URL plugin to be accessible.
-    await context.serve({ servedir: 'dist', port: 8020 });
+    await context.serve({ servedir: 'dist', port: Number(process.env.PORT ?? 8020) });
 } else {
     console.error(`Usage: ${process.argv0} [build|watch|serve|minify]`);
 }

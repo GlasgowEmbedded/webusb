@@ -28,7 +28,10 @@ jobs:
           /index.html
               cross-origin-opener-policy: same-origin
               cross-origin-embedder-policy: require-corp
-          /worker.js
+          /app.worker.js
+              cross-origin-opener-policy: same-origin
+              cross-origin-embedder-policy: require-corp
+          /builder.worker.js
               cross-origin-opener-policy: same-origin
               cross-origin-embedder-policy: require-corp
           END

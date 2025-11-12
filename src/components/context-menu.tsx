@@ -2,11 +2,11 @@ import { createEffect, createSelector, createSignal, For, type JSX } from 'solid
 import { Portal } from 'solid-js/web';
 import { computePosition, flip, shift, size } from '@floating-ui/dom';
 
+import type { Point2D } from '../types';
+
 import { modulo } from '../helpers/modulo';
 import { cls } from '../helpers/class-names';
 import { equals } from '../helpers/comparison';
-
-export type Point2D = [number, number];
 
 interface FocusTrapProps {
     returnFocus: () => void;

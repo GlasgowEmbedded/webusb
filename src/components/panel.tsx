@@ -1,9 +1,10 @@
 import { createComputed, createSignal, For, onCleanup, Show, type JSX } from 'solid-js';
 
-import { ContextMenu, type Point2D } from './context-menu';
+import { ContextMenu } from './context-menu';
 import { Icon } from './icon';
 import { IconMore } from './icon-more';
 
+import type { Point2D } from '../types';
 import { cls } from '../helpers/class-names';
 
 const resizeObserverCallbacks = new Map<Element, (entry: ResizeObserverEntry) => void>();

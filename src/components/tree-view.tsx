@@ -1,16 +1,13 @@
 import { createComputed, createContext, createEffect, createMemo, createSignal, For, Show, useContext } from 'solid-js';
 
-import { ContextMenu, type Point2D } from './context-menu';
+import type { Point2D, TreeNode } from '../types';
+
+import { ContextMenu } from './context-menu';
 import { Icon } from './icon';
 import { IconMore } from './icon-more';
 
 import { cls } from '../helpers/class-names';
 import { modulo } from '../helpers/modulo';
-
-export interface TreeNode {
-    name: string;
-    children?: TreeNode[];
-}
 
 interface TreeNodeAction<N extends TreeNode> {
     name: string;
