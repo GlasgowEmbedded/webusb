@@ -29,8 +29,6 @@ declare global {
         escape(string: string): string;
     }
 
-    function terminalColumns(): number;
-
     function syncFSFromBacking(): Promise<void>;
     function syncFSToBacking(): Promise<void>;
 
@@ -308,10 +306,6 @@ declare global {
 
     const xterm = new Terminal(document.getElementById('terminal')!);
     xterm.focus();
-
-    globalThis.terminalColumns = () => {
-        return xterm.columns;
-    };
 
     const printText = (text: string, end: string = '\n') => {
         xterm.write(new TextEncoder().encode(text + end));
