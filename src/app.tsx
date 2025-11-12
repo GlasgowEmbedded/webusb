@@ -309,7 +309,7 @@ declare global {
     };
 
     const printError = (text: string, end?: string) => {
-        printText(`${termColors.bgRed(' Error ')} ${text}`, end);
+        printText(`${termColors.bold(termColors.red('Error:'))} ${text}`, end);
     };
 
     const printProgress = (text: string, end?: string) => {
