@@ -3,6 +3,8 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { FitAddon } from '@xterm/addon-fit';
 import { openpty } from 'xterm-pty';
 
+import terminalTheme from './terminal-theme';
+
 export class Terminal {
     #element: HTMLElement;
 
@@ -22,6 +24,8 @@ export class Terminal {
         const xterm = new Xterm({
             scrollback: 10000,
             screenReaderMode: true,
+            theme: terminalTheme,
+            drawBoldTextInBrightColors: false,
 
             // Read the desired font-family and font-size from CSS and apply it here.
             // We cannot override these properties on .xterm-rows in CSS
@@ -29,35 +33,6 @@ export class Terminal {
             // like line-height.
             fontFamily: parentContainerStyles.fontFamily,
             fontSize: Number(parentContainerStyles.fontSize.replace(/px$/, '')),
-
-            theme: {
-                black:   '#7a828e',
-                red:     '#ff9492',
-                green:   '#26cd4d',
-                yellow:  '#f0b72f',
-                blue:    '#71b7ff',
-                magenta: '#cb9eff',
-                cyan:    '#39c5cf',
-                white:   '#d9dee3',
-
-                brightBlack:   '#9ea7b3',
-                brightRed:     '#ffb1af',
-                brightGreen:   '#4ae168',
-                brightYellow:  '#f7c843',
-                brightBlue:    '#91cbff',
-                brightMagenta: '#dbb7ff',
-                brightCyan:    '#56d4dd',
-                brightWhite:   '#ffffff',
-
-                background: '#0a0c10',
-                foreground: '#f0f3f6',
-
-                cursor:       '#71b7ff',
-                cursorAccent: '#71b7ff',
-
-                selectionBackground: '#f0f3f6',
-                selectionForeground: '#0a0c10',
-            },
         });
         xterm.open(element);
         this.#xterm = xterm;
