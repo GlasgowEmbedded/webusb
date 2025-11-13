@@ -133,13 +133,10 @@ const boot = async (initialState: InitialState) => {
             if (options?.filters?.length) {
                 const { filters } = options;
                 devices = devices.filter((device) => filters.some((filter) => {
-                    if (filter.vendorId !== undefined && device.vendorId !== filter.vendorId) return false;
-                    if (filter.productId !== undefined && device.productId !== filter.productId) return false;
-                    if (filter.classCode !== undefined && device.deviceClass !== filter.classCode) return false;
-                    if (filter.subclassCode !== undefined && device.deviceSubclass !== filter.subclassCode) return false;
-                    if (filter.protocolCode !== undefined && device.deviceProtocol !== filter.protocolCode) return false;
-                    if (filter.serialNumber !== undefined && device.serialNumber !== filter.serialNumber) return false;
-                    return true;
+                    return Object.keys(filter).every((_key) => {
+                        let key = _key as (keyof USBDeviceFilter & keyof USBDevice);
+                        return filter[key] === undefined || device[key] === filter[key];
+                    });
                 }));
             }
             if (!devices[0]) {
