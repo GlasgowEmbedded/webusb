@@ -112,40 +112,6 @@ const boot = async (initialState: InitialState) => {
         interruptFuture = future;
     };
 
-    Object.defineProperty(navigator.usb, 'requestDevice', {
-        get: () => async (...args: Parameters<USB['requestDevice']>) => {
-            const cloner = (value: unknown) => {
-                if (value instanceof pyodide.ffi.PyProxy) {
-                    return value.toJs({
-                        create_pyproxies: false,
-                        dict_converter: Object.fromEntries,
-                    });
-                }
-            };
-
-            const newArgs: Parameters<USB['requestDevice']> = cloneDeepWith(args, cloner);
-            await rpc.send('requestUSBDevice', newArgs);
-
-            // USBDevice is not transferrable ;_;
-
-            let devices = await navigator.usb.getDevices();
-            const [options] = newArgs;
-            if (options?.filters?.length) {
-                const { filters } = options;
-                devices = devices.filter((device) => filters.some((filter) => {
-                    return Object.keys(filter).every((_key) => {
-                        let key = _key as (keyof USBDeviceFilter & keyof USBDevice);
-                        return filter[key] === undefined || device[key] === filter[key];
-                    });
-                }));
-            }
-            if (!devices[0]) {
-                throw new Error('Requested USB device not found (most likely programmer error)');
-            }
-            return devices[0];
-        },
-    });
-
     const terminal = new TerminalHandle({
         size: initialState.termSize,
         ptyAttrs: initialState.termPtyAttrs,
@@ -186,6 +152,40 @@ const boot = async (initialState: InitialState) => {
     } else if (typeof navigator.usb !== "object") {
         return printError('WebUSB is required but not available.');
     }
+
+    Object.defineProperty(navigator.usb, 'requestDevice', {
+        get: () => async (...args: Parameters<USB['requestDevice']>) => {
+            const cloner = (value: unknown) => {
+                if (value instanceof pyodide.ffi.PyProxy) {
+                    return value.toJs({
+                        create_pyproxies: false,
+                        dict_converter: Object.fromEntries,
+                    });
+                }
+            };
+
+            const newArgs: Parameters<USB['requestDevice']> = cloneDeepWith(args, cloner);
+            await rpc.send('requestUSBDevice', newArgs);
+
+            // USBDevice is not transferrable ;_;
+
+            let devices = await navigator.usb.getDevices();
+            const [options] = newArgs;
+            if (options?.filters?.length) {
+                const { filters } = options;
+                devices = devices.filter((device) => filters.some((filter) => {
+                    return Object.keys(filter).every((_key) => {
+                        let key = _key as (keyof USBDeviceFilter & keyof USBDevice);
+                        return filter[key] === undefined || device[key] === filter[key];
+                    });
+                }));
+            }
+            if (!devices[0]) {
+                throw new Error('Requested USB device not found (most likely programmer error)');
+            }
+            return devices[0];
+        },
+    });
 
     printProgress('Loading toolchain...');
     await loadToolchain({
