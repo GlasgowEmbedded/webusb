@@ -140,7 +140,7 @@ const boot = async (initialState: InitialState) => {
     printText('\x1b[2J\x1b[H', '');
 
     printText(termColors.bold('Glasgow Interface Explorer on the Web platform'));
-    printText(termColors.yellowBright('Experimental software, use at your own risk.'));
+    printText(termColors.yellowBright('Experimental; expect more bugs compared to native version.'));
     printText('All data is processed locally.');
     printText('Files in /root are persisted over reloads.');
     printText('');
